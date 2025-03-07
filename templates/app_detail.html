@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>{{ app.display_name }} - App Store</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='style.css') }}"
+    />
+  </head>
+  <body>
+    <header class="header">
+      <h1>{{ app.display_name }}</h1>
+      <a href="{{ url_for('index') }}" class="btn-install">Back to Apps</a>
+    </header>
+
+    <div class="app-detail">
+      <div class="app-header">
+        <img
+          src="{{ url_for('serve_icon', filename=latest.icon) }}"
+          class="app-icon-large"
+        />
+        <div class="app-info">
+          <h2>{{ app.display_name }}</h2>
+          <p class="app-meta">Latest Version: {{ latest.version }}</p>
+          <a
+            href="itms-services://?action=download-manifest&url={{ url_for('download_manifest', filename=latest.id + '.plist', _external=True) | urlencode }}"
+            class="btn-install"
+            >Install Latest Version</a
+          >
+        </div>
+      </div>
+
+      <div class="version-list">
+        <h3>Previous Versions</h3>
+        {% for version in versions %} {% set version_id = version.get('id', '')
+        %}
+        <div class="version-card">
+          <div class="version-info">
+            <span class="version-number"
+              >Version {{ version.get('version', '') }}</span
+            >
+            <span class="version-date"
+              >{{ version.uploaded_at | datetimeformat }}</span
+            >
+          </div>
+          <div class="version-actions">
+            <a
+              href="itms-services://?action=download-manifest&url={{ url_for('download_manifest', filename=version_id + '.plist', _external=True) | urlencode }}"
+              class="btn-install"
+              >Install</a
+            >
+            <form
+              method="POST"
+              action="{{ url_for('delete_version', bundle_id=app.bundle_id, version_id=version.id) }}"
+            >
+              <button type="submit" class="btn-delete">Delete</button>
+            </form>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </body>
+</html>

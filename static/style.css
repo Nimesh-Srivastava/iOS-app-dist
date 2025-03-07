@@ -1,0 +1,254 @@
+:root {
+    --primary-color: #007aff;
+    --background-color: #ffffff;
+    --card-background: #f5f5f7;
+    --text-primary: #1d1d1f;
+    --text-secondary: #86868b;
+    --shadow: 0 4px 12px rgba(0,0,0,0.1);
+    --border-radius: 18px;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background-color: var(--background-color);
+    color: var(--text-primary);
+    margin: 0;
+    padding: 2rem;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 3rem;
+    max-width: 1200px;
+    margin: 0 auto 3rem;
+}
+
+.app-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.app-card {
+    background: var(--card-background);
+    border-radius: var(--border-radius);
+    padding: 1.5rem;
+    transition: transform 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.app-card:hover {
+    transform: translateY(-5px);
+}
+
+.app-card-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.app-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 15px;
+    margin-right: 1rem;
+    box-shadow: var(--shadow);
+}
+
+.app-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.app-developer {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin: 0.3rem 0;
+}
+
+.app-description {
+    font-size: 0.95rem;
+    line-height: 1.5;
+    margin-bottom: 1.5rem;
+}
+
+.app-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.btn-install {
+    background: var(--primary-color);
+    color: white;
+    padding: 0.8rem 1.5rem;
+    border-radius: 25px;
+    text-decoration: none;
+    font-weight: 500;
+    transition: opacity 0.2s ease;
+}
+
+.btn-install:hover {
+    opacity: 0.9;
+    color: white;
+}
+
+.btn-delete {
+    background: transparent;
+    color: #ff3b30;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.btn-delete:hover {
+    background: rgba(255,59,48,0.1);
+}
+
+.upload-container {
+    max-width: 600px;
+    margin: 3rem auto;
+    background: var(--card-background);
+    padding: 2rem;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+}
+
+.upload-title {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+.form-group input[type="text"],
+.form-group input[type="file"] {
+    width: 100%;
+    padding: 0.8rem;
+    border: 2px solid #e0e0e0;
+    border-radius: 12px;
+    font-size: 1rem;
+    transition: border-color 0.2s ease;
+}
+
+.form-group input[type="text"]:focus,
+.form-group input[type="file"]:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+.form-group input[type="file"] {
+    padding: 0.5rem;
+    background: white;
+}
+
+.form-group input::file-selector-button {
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    margin-right: 1rem;
+    cursor: pointer;
+}
+
+.image-preview {
+    width: 150px;
+    height: 150px;
+    border-radius: 20px;
+    margin: 1rem 0;
+    border: 2px dashed #ddd;
+    object-fit: contain;
+}
+
+.btn-upload {
+    background: var(--primary-color);
+    color: white;
+    width: 100%;
+    padding: 1rem;
+    border: none;
+    border-radius: 12px;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+}
+
+.btn-upload:hover {
+    opacity: 0.9;
+}
+
+@media (max-width: 768px) {
+    body {
+        padding: 1rem;
+    }
+    
+    .app-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.app-detail {
+    max-width: 800px;
+    margin: 2rem auto;
+}
+
+.app-header {
+    display: flex;
+    gap: 2rem;
+    margin-bottom: 3rem;
+}
+
+.app-icon-large {
+    width: 150px;
+    height: 150px;
+    border-radius: 30px;
+    box-shadow: var(--shadow);
+}
+
+.version-list {
+    background: var(--card-background);
+    padding: 2rem;
+    border-radius: var(--border-radius);
+}
+
+.version-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    margin: 1rem 0;
+    background: white;
+    border-radius: 12px;
+}
+
+.version-number {
+    font-weight: 500;
+    margin-right: 1rem;
+}
+
+.version-date {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin-right: 1rem;
+}
+
+.version-actions {
+    display: flex;
+    gap: 1rem;
+}

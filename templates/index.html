@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>App Store</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='style.css') }}"
+    />
+  </head>
+  <body>
+    <header class="header">
+      <h1>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          class="feather feather-package"
+        >
+          <line x1="16.5" y1="9.4" x2="7.5" y2="4.21"></line>
+          <path
+            d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"
+          ></path>
+          <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+          <line x1="12" y1="22.08" x2="12" y2="12"></line>
+        </svg>
+        Enterprise App Store
+      </h1>
+      <a href="{{ url_for('upload_file') }}" class="btn-install">Upload App</a>
+    </header>
+
+    <main class="app-grid">
+      {% for app in apps %}
+      <article class="app-card">
+        <div class="app-card-header">
+          <img src="{{ app.icon }}" class="app-icon" alt="App Icon" />
+          <div>
+            <h2 class="app-title">{{ app.name }}</h2>
+            <p class="app-developer">Version {{ app.version }}</p>
+          </div>
+        </div>
+
+        <div class="app-actions">
+          <a
+            href="itms-services://?action=download-manifest&url={{ url_for('download_manifest', filename=app.latest_version.get('id', '') + '.plist', _external=True) | urlencode }}"
+            class="btn-install"
+            >Install</a
+          >
+
+          {% if app.latest_version %}
+          <form
+            method="POST"
+            action="{{ url_for('delete_version', bundle_id=app.bundle_id, version_id=app.latest_version.id) }}"
+            onsubmit="return confirm('This will permanently delete the app. Continue?');"
+          >
+            <button type="submit" class="btn-delete">Delete App</button>
+          </form>
+          {% else %}
+          <p class="error">No versions available</p>
+          {% endif %}
+        </div>
+      </article>
+      {% endfor %}
+    </main>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+  </body>
+</html>

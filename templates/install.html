@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Install App</title>
+    <script>
+      function launchInstall() {
+        window.location.href = "{{ install_url }}";
+        setTimeout(function () {
+          alert(
+            "If installation doesn't start:\n1. Open Safari\n2. Return to this page\n3. Tap Install Again"
+          );
+        }, 1000);
+      }
+    </script>
+  </head>
+  <body onload="launchInstall()">
+    <h1>Starting Installation...</h1>
+    <p>If the installation doesn't start automatically:</p>
+    <a href="{{ install_url }}" style="font-size: 1.2em; color: blue"
+      >Tap here to install manually</a
+    >
+  </body>
+</html>

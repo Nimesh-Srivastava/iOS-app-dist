@@ -1,0 +1,5 @@
+flask>=2.0.1
+biplist>=1.0.3
+cryptography>=36.0.0
+plistlib>=0.2
+pillow>=9.0.0
