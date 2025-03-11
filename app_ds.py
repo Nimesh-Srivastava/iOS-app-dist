@@ -1,3 +1,5 @@
+from dotenv import load_dotenv
+load_dotenv()
 from flask import Flask, render_template, request, redirect, url_for, jsonify
 from datetime import datetime
 import os
@@ -14,8 +16,6 @@ from packaging import version
 from hurry.filesize import size
 from azure.storage.blob import BlobServiceClient, ContentSettings
 import ssl
-from dotenv import load_dotenv
-load_dotenv()
 
 app = Flask(__name__)
 
@@ -232,7 +232,10 @@ def upload_file():
 
             # Generate and upload manifest
             manifest = generate_manifest(app_info, ipa_url, icon_url)
-            azure_upload(f"manifests/{app_id}.plist", BytesIO(manifest.encode()), 'text/xml')
+            manifest_url = azure_upload(f"manifests/{app_id}.plist", BytesIO(manifest.encode()), 'text/xml')
+
+            # Update version info with manifest URL
+            metadata['versions'][app_version]['manifest_url'] = manifest_url
 
             # Save metadata
             azure_upload(metadata_blob, BytesIO(json.dumps(metadata).encode()), 'application/json')
@@ -244,6 +247,21 @@ def upload_file():
             return f"Upload failed: {str(e)}", 500
 
     return render_template('upload.html')
+
+@app.route('/manifests/<path:filename>')
+def download_manifest(filename):
+    try:
+        blob_name = f"manifests/{filename}"
+        blob_client = container_client.get_blob_client(blob_name)
+        
+        if not blob_client.exists():
+            return "Manifest not found", 404
+            
+        manifest = blob_client.download_blob().readall()
+        return manifest, 200, {'Content-Type': 'text/xml'}
+    except Exception as e:
+        app.logger.error(f"Error serving manifest {filename}: {str(e)}")
+        return "Error serving manifest", 500
 
 @app.route('/app/<bundle_id>')
 def app_detail(bundle_id):
