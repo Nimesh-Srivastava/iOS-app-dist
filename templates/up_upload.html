@@ -11,35 +11,50 @@
 	</head>
 	<body>
 		<div class="upload-container">
-			<h1>Upload New App Version</h1>
+			<h1 class="upload-title">Upload New Application</h1>
 			<form method="POST" enctype="multipart/form-data">
-				<div>
-					<label>App Name:</label>
-					<input type="text" name="app_name" required />
+				<div class="form-group">
+					<label for="app-name">Application Name</label>
+					<input type="text" name="app_name" id="app-name" required />
 				</div>
-				<div>
-					<label>App Version (X.Y.Z):</label>
+
+				<div class="form-group">
+					<label for="app-version">Version Number</label>
 					<input
 						type="text"
 						name="app_version"
-						pattern="^\d+\.\d+\.\d+$"
+						id="app-version"
 						required
+						pattern="^\d+\.\d+\.\d+$"
+						title="Use semantic versioning (e.g. 1.0.0)"
 					/>
 				</div>
-				<div>
-					<label>IPA File:</label>
-					<input type="file" name="ipa" accept=".ipa" required />
-				</div>
-				<div>
-					<label>App Icon:</label>
+
+				<div class="form-group">
+					<label for="app-icon">App Icon (512x512px PNG)</label>
 					<input
 						type="file"
 						name="icon"
+						id="app-icon"
 						accept=".png,.jpg,.jpeg"
 						required
 					/>
 				</div>
-				<button type="submit">Upload</button>
+
+				<div class="form-group">
+					<label for="ipa-file">IPA File</label>
+					<input
+						type="file"
+						name="file"
+						id="ipa-file"
+						accept=".ipa"
+						required
+					/>
+				</div>
+
+				<button type="submit" class="btn-upload">
+					Publish Application
+				</button>
 			</form>
 		</div>
 	</body>
