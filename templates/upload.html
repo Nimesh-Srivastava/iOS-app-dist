@@ -1,38 +1,61 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Upload App</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
-<body>
-    <div class="upload-container">
-        <h1 class="upload-title">Upload New Application</h1>
-        <form method="POST" enctype="multipart/form-data">
-            <div class="form-group">
-                <label for="app-name">Application Name</label>
-                <input type="text" name="app_name" id="app-name" required>
-            </div>
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Upload App</title>
+		<link
+			rel="stylesheet"
+			href="{{ url_for('static', filename='style.css') }}"
+		/>
+	</head>
+	<body>
+		<div class="upload-container">
+			<h1 class="upload-title">Upload New Application</h1>
+			<form method="POST" enctype="multipart/form-data">
+				<div class="form-group">
+					<label for="app-name">Application Name</label>
+					<input type="text" name="app_name" id="app-name" required />
+				</div>
 
-            <div class="form-group">
-                <label for="app-version">Version Number</label>
-                <input type="text" name="app_version" id="app-version" required 
-                       pattern="^\d+\.\d+\.\d+$" title="Use semantic versioning (e.g. 1.0.0)">
-            </div>
-            
-            <div class="form-group">
-                <label for="app-icon">App Icon (512x512px PNG)</label>
-                <input type="file" name="icon" id="app-icon" accept="image/png, image/jpeg" required>
-            </div>
-            
-            <div class="form-group">
-                <label for="ipa-file">IPA File</label>
-                <input type="file" name="file" id="ipa-file" accept=".ipa" required>
-            </div>
+				<div class="form-group">
+					<label for="app-version">Version Number</label>
+					<input
+						type="text"
+						name="app_version"
+						id="app-version"
+						required
+						pattern="^\d+\.\d+\.\d+$"
+						title="Use semantic versioning (e.g. 1.0.0)"
+					/>
+				</div>
 
-            <button type="submit" class="btn-upload">Publish Application</button>
-        </form>
-    </div>
-</body>
+				<div class="form-group">
+					<label for="app-icon">App Icon (512x512px PNG)</label>
+					<input
+						type="file"
+						name="icon"
+						id="app-icon"
+						accept="image/png, image/jpeg"
+						required
+					/>
+				</div>
+
+				<div class="form-group">
+					<label for="ipa-file">IPA File</label>
+					<input
+						type="file"
+						name="file"
+						id="ipa-file"
+						accept=".ipa"
+						required
+					/>
+				</div>
+
+				<button type="submit" class="btn-upload">
+					Publish Application
+				</button>
+			</form>
+		</div>
+	</body>
 </html>

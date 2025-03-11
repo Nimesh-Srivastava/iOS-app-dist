@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Upload App</title>
+		<link
+			rel="stylesheet"
+			href="{{ url_for('static', filename='style.css') }}"
+		/>
+	</head>
+	<body>
+		<div class="upload-container">
+			<h1>Upload New App Version</h1>
+			<form method="POST" enctype="multipart/form-data">
+				<div>
+					<label>App Name:</label>
+					<input type="text" name="app_name" required />
+				</div>
+				<div>
+					<label>App Version (X.Y.Z):</label>
+					<input
+						type="text"
+						name="app_version"
+						pattern="^\d+\.\d+\.\d+$"
+						required
+					/>
+				</div>
+				<div>
+					<label>IPA File:</label>
+					<input type="file" name="ipa" accept=".ipa" required />
+				</div>
+				<div>
+					<label>App Icon:</label>
+					<input
+						type="file"
+						name="icon"
+						accept=".png,.jpg,.jpeg"
+						required
+					/>
+				</div>
+				<button type="submit">Upload</button>
+			</form>
+		</div>
+	</body>
+</html>
