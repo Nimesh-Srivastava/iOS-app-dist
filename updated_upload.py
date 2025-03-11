@@ -2,18 +2,17 @@
 def upload_file():
     if request.method == 'POST':
         try:
-            # Validate required fields
-            if 'ipa' not in request.files:
-                return "IPA file is required", 400
-            if 'icon' not in request.files:
-                return "Icon file is required", 400
-            if 'app_name' not in request.form:
-                return "App name is required", 400
-            if 'app_version' not in request.form:
-                return "App version is required", 400
+            # Validate files
+            if 'ipa' not in request.files or 'icon' not in request.files:
+                return "Both IPA and icon files are required", 400
 
             ipa_file = request.files['ipa']
             icon_file = request.files['icon']
+
+            # Validate form fields
+            if not all(k in request.form for k in ['app_name', 'app_version']):
+                return "All form fields are required", 400
+
             app_name = request.form['app_name'].strip()
             app_version = request.form['app_version'].strip()
 
@@ -41,9 +40,17 @@ def upload_file():
             app_id = str(uuid.uuid4())
             bundle_id = app_info['bundle_id']
 
-            # Upload files to Azure
-            ipa_url = azure_upload(f"ipas/{app_id}.ipa", BytesIO(ipa_stream), 'application/octet-stream')
-            icon_url = azure_upload(f"icons/{app_id}.png", icon_file.stream, 'image/png')
+            # Initialize Azure client with custom SSL context
+            blob_service_client = BlobServiceClient.from_connection_string(
+                app.config['AZURE_STORAGE_CONNECTION_STRING'],
+                connection_verify=False
+            )
+            container_client = blob_service_client.get_container_client(
+                app.config['AZURE_CONTAINER_NAME'])
+
+            # Upload files
+            ipa_url = azure_upload(container_client, f"ipas/{app_id}.ipa", BytesIO(ipa_stream), 'application/octet-stream')
+            icon_url = azure_upload(container_client, f"icons/{app_id}.png", icon_file.stream, 'image/png')
 
             # Create metadata
             metadata = {
@@ -62,7 +69,7 @@ def upload_file():
                 }
             }
 
-            # Handle existing app versions
+            # Handle existing versions
             metadata_blob = f"metadata/{bundle_id}.json"
             if container_client.get_blob_client(metadata_blob).exists():
                 existing = json.loads(container_client.get_blob_client(metadata_blob).download_blob().readall())
@@ -70,15 +77,15 @@ def upload_file():
 
             # Generate and upload manifest
             manifest = generate_manifest(app_info, ipa_url, icon_url)
-            azure_upload(f"manifests/{app_id}.plist", BytesIO(manifest.encode()), 'text/xml')
+            azure_upload(container_client, f"manifests/{app_id}.plist", BytesIO(manifest.encode()), 'text/xml')
 
             # Save metadata
-            azure_upload(metadata_blob, BytesIO(json.dumps(metadata).encode()), 'application/json')
+            azure_upload(container_client, metadata_blob, BytesIO(json.dumps(metadata).encode()), 'application/json')
 
             return redirect(url_for('index'))
 
         except Exception as e:
-            app.logger.error(f"Upload error: {str(e)}")
-            return f"Upload failed: {str(e)}", 400
+            app.logger.error(f"Upload error: {str(e)}", exc_info=True)
+            return f"Upload failed: {str(e)}", 500
 
     return render_template('upload.html')
