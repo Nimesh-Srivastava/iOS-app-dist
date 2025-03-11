@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>App Store</title>
+</head>
+<body>
+    <h1>Available Apps</h1>
+    <a href="{{ url_for('upload_file') }}">Upload New App</a>
+    
+    <div class="app-list">
+        {% for app in apps %}
+        <div class="app-card">
+            <img src="{{ app.icon_url }}" class="app-icon">
+            <div class="app-info">
+                <h2>{{ app.name }}</h2>
+                <p>Version: {{ app.version }}</p>
+                <p>Size: {{ app.size | filesizeformat }}</p>
+                <p>Uploaded: {{ app.uploaded_at | datetimeformat }}</p>
+                <a href="itms-services://?action=download-manifest&url={{ url_for('download_manifest', filename=app.bundle_id + '.plist', _external=True) | urlencode }}"
+                   class="install-btn">Install</a>
+                <a href="{{ url_for('app_detail', bundle_id=app.bundle_id) }}" class="details-btn">Details</a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</body>
+</html>
