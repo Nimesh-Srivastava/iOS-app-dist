@@ -13,6 +13,8 @@ from PIL import Image
 from packaging import version
 from hurry.filesize import size
 from azure.storage.blob import BlobServiceClient, ContentSettings
+from dotenv import load_dotenv
+load_dotenv()
 
 app = Flask(__name__)
 
