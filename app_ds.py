@@ -13,12 +13,13 @@ from PIL import Image
 from packaging import version
 from hurry.filesize import size
 from azure.storage.blob import BlobServiceClient, ContentSettings
+import ssl
 from dotenv import load_dotenv
 load_dotenv()
 
 app = Flask(__name__)
 
-# Azure Storage Configuration
+# Configuration
 app.config.update({
     'AZURE_STORAGE_CONNECTION_STRING': os.getenv('AZURE_STORAGE_CONNECTION_STRING'),
     'AZURE_CONTAINER_NAME': 'ios-apps',
@@ -29,9 +30,15 @@ app.config.update({
     'MAX_CONTENT_LENGTH': 2 * 1024 * 1024 * 1024  # 2GB
 })
 
-# Initialize Azure clients
+# Initialize Azure clients with SSL verification disabled
+ssl_context = ssl.create_default_context()
+ssl_context.check_hostname = False
+ssl_context.verify_mode = ssl.CERT_NONE
+
 blob_service_client = BlobServiceClient.from_connection_string(
-    app.config['AZURE_STORAGE_CONNECTION_STRING'])
+    app.config['AZURE_STORAGE_CONNECTION_STRING'],
+    connection_verify=False
+)
 container_client = blob_service_client.get_container_client(
     app.config['AZURE_CONTAINER_NAME'])
 
@@ -71,7 +78,8 @@ def extract_app_info(file_stream):
             return {
                 'bundle_id': plist.get('CFBundleIdentifier', 'unknown.bundle.id'),
                 'version': plist.get('CFBundleShortVersionString', '1.0'),
-                'title': plist.get('CFBundleDisplayName', plist.get('CFBundleName', 'Untitled App')),
+                'title': plist.get('CFBundleDisplayName', 
+                          plist.get('CFBundleName', 'Untitled App')),
                 'min_os': plist.get('MinimumOSVersion', '12.0')
             }
     except Exception as e:
@@ -146,8 +154,9 @@ def index():
                     'bundle_id': data['bundle_id'],
                     'name': data['display_name'],
                     'version': latest['version'],
-                    'icon': latest['icon_url'],
-                    'size': latest['size']
+                    'icon_url': latest['icon_url'],
+                    'size': latest['size'],
+                    'uploaded_at': latest['uploaded_at']
                 })
     except Exception as e:
         app.logger.error(f"Error loading apps: {str(e)}")
@@ -157,19 +166,41 @@ def index():
 def upload_file():
     if request.method == 'POST':
         try:
+            # Validate required fields
+            if 'ipa' not in request.files or 'icon' not in request.files:
+                return "Both IPA and icon files are required", 400
+                
             ipa_file = request.files['ipa']
             icon_file = request.files['icon']
-            app_name = request.form['app_name']
-            app_version = request.form['app_version']
+            
+            if ipa_file.filename == '' or icon_file.filename == '':
+                return "Please select both IPA and icon files", 400
 
+            # Validate form fields
+            if 'app_name' not in request.form or 'app_version' not in request.form:
+                return "App name and version are required", 400
+                
+            app_name = request.form['app_name'].strip()
+            app_version = request.form['app_version'].strip()
+
+            # Validate inputs
+            if not app_name:
+                return "App name cannot be empty", 400
             if not re.match(r'^\d+\.\d+\.\d+$', app_version):
-                raise ValueError("Invalid version format")
+                return "Version must be in format X.Y.Z", 400
+            if not allowed_file(ipa_file.filename, 'ipa'):
+                return "Invalid IPA file type", 400
+            if not allowed_file(icon_file.filename, 'icon'):
+                return "Invalid icon file type", 400
 
             # Process IPA
             ipa_stream = ipa_file.stream.read()
+            if not ipa_stream:
+                return "Empty IPA file", 400
+
             app_info = extract_app_info(BytesIO(ipa_stream))
             if not app_info:
-                raise ValueError("Invalid IPA file")
+                return "Failed to extract app info from IPA", 400
 
             # Upload files
             app_id = str(uuid.uuid4())
@@ -193,41 +224,71 @@ def upload_file():
                 }
             }
 
-            # Upload manifest
-            manifest = generate_manifest(app_info, ipa_url, icon_url)
-            azure_upload(f"manifests/{app_id}.plist", BytesIO(manifest.encode()), 'text/xml')
-
-            # Update metadata
+            # Handle existing versions
             metadata_blob = f"metadata/{app_info['bundle_id']}.json"
             if container_client.get_blob_client(metadata_blob).exists():
                 existing = json.loads(container_client.get_blob_client(metadata_blob).download_blob().readall())
-                existing['versions'].update(metadata['versions'])
-                metadata = existing
+                metadata['versions'].update(existing['versions'])
+
+            # Generate and upload manifest
+            manifest = generate_manifest(app_info, ipa_url, icon_url)
+            azure_upload(f"manifests/{app_id}.plist", BytesIO(manifest.encode()), 'text/xml')
+
+            # Save metadata
             azure_upload(metadata_blob, BytesIO(json.dumps(metadata).encode()), 'application/json')
 
             return redirect(url_for('index'))
+            
         except Exception as e:
-            app.logger.error(f"Upload failed: {str(e)}")
-            return f"Error: {str(e)}", 400
+            app.logger.error(f"Upload error: {str(e)}", exc_info=True)
+            return f"Upload failed: {str(e)}", 500
+
     return render_template('upload.html')
+
+@app.route('/app/<bundle_id>')
+def app_detail(bundle_id):
+    try:
+        metadata_blob = f"metadata/{bundle_id}.json"
+        blob_client = container_client.get_blob_client(metadata_blob)
+        
+        if not blob_client.exists():
+            return "App not found", 404
+            
+        metadata = json.loads(blob_client.download_blob().readall())
+        versions = sorted(metadata['versions'].values(),
+                        key=lambda v: version.parse(v['version']),
+                        reverse=True)
+        
+        return render_template('app_detail.html', 
+                             app=metadata,
+                             versions=versions,
+                             latest=versions[0])
+    except Exception as e:
+        app.logger.error(f"Error loading app {bundle_id}: {str(e)}")
+        return "Error loading app", 500
 
 @app.route('/delete/<bundle_id>/<version_id>', methods=['POST'])
 def delete_version(bundle_id, version_id):
     try:
         metadata_blob = f"metadata/{bundle_id}.json"
-        metadata = json.loads(container_client.get_blob_client(metadata_blob).download_blob().readall())
-        version = metadata['versions'].get(version_id)
+        blob_client = container_client.get_blob_client(metadata_blob)
         
-        if not version:
-            raise ValueError("Version not found")
+        if not blob_client.exists():
+            return "App not found", 404
+            
+        metadata = json.loads(blob_client.download_blob().readall())
+        version_info = next((v for v in metadata['versions'].values() if v['id'] == version_id), None)
+        
+        if not version_info:
+            return "Version not found", 404
 
-        # Delete blobs
-        azure_delete(version['ipa_url'].split('/')[-1])
-        azure_delete(version['icon_url'].split('/')[-1])
+        # Delete associated files
+        azure_delete(version_info['ipa_url'].split('/')[-1])
+        azure_delete(version_info['icon_url'].split('/')[-1])
         azure_delete(f"manifests/{version_id}.plist")
 
         # Update metadata
-        del metadata['versions'][version_id]
+        del metadata['versions'][version_info['version']]
         if metadata['versions']:
             azure_upload(metadata_blob, BytesIO(json.dumps(metadata).encode()), 'application/json')
         else:
@@ -235,8 +296,17 @@ def delete_version(bundle_id, version_id):
 
         return redirect(url_for('index'))
     except Exception as e:
-        app.logger.error(f"Delete failed: {str(e)}")
-        return f"Error: {str(e)}", 400
+        app.logger.error(f"Delete error: {str(e)}")
+        return f"Error deleting version: {str(e)}", 500
+
+@app.route('/.well-known/apple-app-site-association')
+def aasa():
+    return jsonify({
+        "applinks": {
+            "apps": [],
+            "details": []
+        }
+    })
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
