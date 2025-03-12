@@ -86,6 +86,15 @@ def extract_app_info(file_stream):
         app.logger.error(f"Error extracting app info: {str(e)}")
         return None
 
+# def azure_upload(blob_name, data, content_type):
+#     blob_client = container_client.get_blob_client(blob_name)
+#     blob_client.upload_blob(
+#         data,
+#         content_settings=ContentSettings(content_type=content_type),
+#         overwrite=True
+#     )
+#     return blob_client.url
+
 def azure_upload(blob_name, data, content_type):
     blob_client = container_client.get_blob_client(blob_name)
     blob_client.upload_blob(
@@ -93,7 +102,7 @@ def azure_upload(blob_name, data, content_type):
         content_settings=ContentSettings(content_type=content_type),
         overwrite=True
     )
-    return blob_client.url
+    return url_for('serve_icon', filename=blob_name.split('/')[-1], _external=True)
 
 def azure_delete(blob_name):
     blob_client = container_client.get_blob_client(blob_name)
