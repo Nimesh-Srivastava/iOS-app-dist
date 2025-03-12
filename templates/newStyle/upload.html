@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Upload App{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto bg-white p-8 rounded-lg shadow-md">
+    <h1 class="text-2xl font-bold mb-6">Upload New App Version</h1>
+    <form method="POST" enctype="multipart/form-data" class="space-y-6">
+        <div>
+            <label class="block text-sm font-medium text-gray-700">App Name</label>
+            <input type="text" name="app_name" required
+                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500">
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700">App Version (X.Y.Z)</label>
+            <input type="text" name="app_version" pattern="^\d+\.\d+\.\d+$" required
+                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500">
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700">IPA File</label>
+            <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
+                <div class="space-y-1 text-center">
+                    <i class="fas fa-file-archive text-4xl text-gray-400"></i>
+                    <div class="flex text-sm text-gray-600">
+                        <label for="ipa" class="relative cursor-pointer bg-white rounded-md font-medium text-purple-600 hover:text-purple-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-purple-500">
+                            <span>Upload .ipa file</span>
+                            <input id="ipa" name="ipa" type="file" accept=".ipa" required class="sr-only">
+                        </label>
+                        <p class="pl-1">or drag and drop</p>
+                    </div>
+                    <p class="text-xs text-gray-500">Maximum file size: 2GB</p>
+                </div>
+            </div>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700">App Icon</label>
+            <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
+                <div class="space-y-1 text-center">
+                    <i class="fas fa-image text-4xl text-gray-400"></i>
+                    <div class="flex text-sm text-gray-600">
+                        <label for="icon" class="relative cursor-pointer bg-white rounded-md font-medium text-purple-600 hover:text-purple-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-purple-500">
+                            <span>Upload icon</span>
+                            <input id="icon" name="icon" type="file" accept=".png,.jpg,.jpeg" required class="sr-only">
+                        </label>
+                        <p class="pl-1">or drag and drop</p>
+                    </div>
+                    <p class="text-xs text-gray-500">PNG, JPG up to 2MB</p>
+                </div>
+            </div>
+        </div>
+        <div>
+            <button type="submit" class="w-full bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">
+                <i class="fas fa-upload mr-2"></i>Upload App
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
