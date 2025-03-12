@@ -202,10 +202,14 @@ def upload_file():
             if not app_info:
                 return "Failed to extract app info from IPA", 400
 
+            # Process icon
+            icon_stream = icon_file.stream.read()
+            icon_filename = f"{app_id}.png"
+            icon_url = azure_upload(f"icons/{icon_filename}", BytesIO(icon_stream), 'image/png')
+
             # Upload files
             app_id = str(uuid.uuid4())
             ipa_url = azure_upload(f"ipas/{app_id}.ipa", BytesIO(ipa_stream), 'application/octet-stream')
-            icon_url = azure_upload(f"icons/{app_id}.png", icon_file.stream, 'image/png')
 
             # Create metadata
             metadata = {
@@ -216,7 +220,7 @@ def upload_file():
                         'id': app_id,
                         'version': app_version,
                         'ipa_url': ipa_url,
-                        'icon_url': icon_url,
+                        'icon_url': url_for('serve_icon', filename=icon_filename, _external=True),
                         'size': len(ipa_stream),
                         'uploaded_at': datetime.now().isoformat(),
                         'min_ios': app_info['min_os']
@@ -316,6 +320,21 @@ def delete_version(bundle_id, version_id):
     except Exception as e:
         app.logger.error(f"Delete error: {str(e)}")
         return f"Error deleting version: {str(e)}", 500
+
+@app.route('/icons/<path:filename>')
+def serve_icon(filename):
+    try:
+        blob_name = f"icons/{filename}"
+        blob_client = container_client.get_blob_client(blob_name)
+        
+        if not blob_client.exists():
+            return "Icon not found", 404
+            
+        icon = blob_client.download_blob().readall()
+        return icon, 200, {'Content-Type': 'image/png'}
+    except Exception as e:
+        app.logger.error(f"Error serving icon {filename}: {str(e)}")
+        return "Error serving icon", 500
 
 @app.route('/.well-known/apple-app-site-association')
 def aasa():
