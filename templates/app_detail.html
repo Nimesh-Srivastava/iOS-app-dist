@@ -1,0 +1,134 @@
+{% extends 'base.html' %} {% block title %}{{ app.name }} - Details{% endblock%}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1>{{ app.name }}</h1>
+  <div>
+    <a href="{{ url_for('install', app_id=app.id) }}" class="btn btn-success"
+      >Install Latest</a
+    >
+    <a
+      href="{{ url_for('direct_install', app_id=app.id) }}"
+      class="btn btn-outline-success"
+      >Direct Download</a
+    >
+    {% if g.user and g.user.role == 'admin' %}
+    <a
+      href="{{ url_for('upload') }}?app_id={{ app.id }}"
+      class="btn btn-primary"
+      >Upload New Version</a
+    >
+    <a href="{{ url_for('edit_app', app_id=app.id) }}" class="btn btn-warning"
+      >Edit App</a
+    >
+    {% endif %}
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-md-6">
+    <div class="card mb-4">
+      <div class="card-header">App Information</div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-md-3 text-center mb-3">
+            <img
+              src="{{ app.icon }}"
+              alt="{{ app.name }}"
+              class="img-thumbnail"
+              style="width: 80px; height: 80px"
+            />
+          </div>
+          <div class="col-md-9">
+            <p><strong>Current Version:</strong> {{ app.version }}</p>
+            <p><strong>Bundle ID:</strong> {{ app.bundle_id or "Unknown" }}</p>
+            {% if app.build_number %}
+            <p><strong>Build Number:</strong> {{ app.build_number }}</p>
+            {% endif %}
+            <p>
+              <strong>File Size:</strong>
+              {% if app.size %} {{ (app.size / 1024 / 1024) | round(2) }} MB {%
+              else %} Unknown {% endif %}
+            </p>
+            <p>
+              <strong>Last Updated:</strong>
+              {% if app.upload_date %} {{ app.upload_date.split('T')[0] }} {%
+              elif app.creation_date %} {{ app.creation_date.split('T')[0] }} {%
+              else %} Unknown {% endif %}
+            </p>
+            {% if app.versions %}
+            <p><strong>Total Versions:</strong> {{ app.versions | length }}</p>
+            {% endif %} {% if app.source %}
+            <p><strong>Source:</strong> {{ app.source }}</p>
+            {% endif %}
+          </div>
+        </div>
+
+        {% if g.user and g.user.role == 'admin' %}
+        <form
+          action="{{ url_for('delete_app', app_id=app.id) }}"
+          method="post"
+          onsubmit="return confirm('Are you sure you want to delete this app? This action cannot be undone.');"
+        >
+          <button type="submit" class="btn btn-danger">Delete App</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header">Installation</div>
+      <div class="card-body">
+        <p>To install this app on your iOS device:</p>
+        <ol>
+          <li>Click the "Install Latest" button</li>
+          <li>When prompted, confirm you want to download the app</li>
+          <li>Go to Settings > General > Device Management</li>
+          <li>Trust the developer profile</li>
+          <li>Launch the app from your home screen</li>
+        </ol>
+        <div class="alert alert-info">
+          Note: If you encounter certificate errors, use the "Direct Download"
+          option and install manually.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if app.versions %}
+<div class="card mt-4">
+  <div class="card-header">Version History</div>
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-striped">
+        <thead>
+          <tr>
+            <th>Version</th>
+            <th>Upload Date</th>
+            <th>Size</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for version in app.versions | reverse %}
+          <tr>
+            <td>{{ version.version }}</td>
+            <td>{{ version.upload_date.split('T')[0] }}</td>
+            <td>{{ (version.size / 1024 / 1024) | round(2) }} MB</td>
+            <td>
+              <a
+                href="{{ url_for('download_app', app_id=app.id, filename=version.filename) }}"
+                class="btn btn-sm btn-secondary"
+                >Download</a
+              >
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %} {% endblock %}

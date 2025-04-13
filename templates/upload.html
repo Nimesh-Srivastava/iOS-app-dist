@@ -1,0 +1,226 @@
+{% extends 'base.html' %} {% block title %}Upload App{% endblock %} {% block
+content %}
+<h1 class="mb-4">Upload App</h1>
+
+<div class="card mb-4">
+  <div class="card-header">
+    <ul class="nav nav-tabs card-header-tabs" role="tablist">
+      <li class="nav-item">
+        <a
+          class="nav-link active"
+          id="new-app-tab"
+          data-bs-toggle="tab"
+          href="#new-app"
+          role="tab"
+          >New App</a
+        >
+      </li>
+      <li class="nav-item">
+        <a
+          class="nav-link"
+          id="new-version-tab"
+          data-bs-toggle="tab"
+          href="#new-version"
+          role="tab"
+          >New Version</a
+        >
+      </li>
+    </ul>
+  </div>
+  <div class="card-body">
+    <div class="tab-content">
+      <div class="tab-pane fade show active" id="new-app" role="tabpanel">
+        <h5 class="card-title">Upload New App</h5>
+        <form
+          action="{{ url_for('upload') }}"
+          method="post"
+          enctype="multipart/form-data"
+        >
+          <div class="mb-3">
+            <label for="app_name" class="form-label">App Name</label>
+            <input
+              type="text"
+              class="form-control"
+              id="app_name"
+              name="app_name"
+              required
+            />
+            <div class="form-text">Enter the display name for your app</div>
+          </div>
+          <div class="mb-3">
+            <label for="app_version" class="form-label">Version</label>
+            <input
+              type="text"
+              class="form-control"
+              id="app_version"
+              name="app_version"
+              placeholder="1.0.0"
+              required
+            />
+            <div class="form-text">Version number (e.g., 1.0.0)</div>
+          </div>
+          <div class="mb-3">
+            <label for="bundle_id" class="form-label">Bundle Identifier</label>
+            <input
+              type="text"
+              class="form-control"
+              id="bundle_id"
+              name="bundle_id"
+              placeholder="com.example.myapp"
+            />
+            <div class="form-text">
+              Optional: Override the bundle identifier from the IPA
+            </div>
+          </div>
+          <div class="mb-3">
+            <label for="file" class="form-label">Select IPA File</label>
+            <input
+              type="file"
+              class="form-control"
+              id="file"
+              name="file"
+              accept=".ipa"
+              required
+            />
+            <div class="form-text">
+              Only .ipa files are accepted. Maximum size: 500MB
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary">Upload App</button>
+        </form>
+      </div>
+
+      <div class="tab-pane fade" id="new-version" role="tabpanel">
+        <h5 class="card-title">Upload New Version</h5>
+
+        {% if not apps %}
+        <div class="alert alert-info">
+          No existing apps found. Please upload a new app first.
+        </div>
+        {% else %}
+        <form
+          action="{{ url_for('upload') }}"
+          method="post"
+          enctype="multipart/form-data"
+        >
+          <div class="mb-3">
+            <label for="app_id" class="form-label">Select App</label>
+            <select class="form-select" id="app_id" name="app_id" required>
+              {% for app in apps %}
+              <option value="{{ app.id }}">
+                {{ app.name }} (v{{ app.version }})
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="app_version" class="form-label">New Version</label>
+            <input
+              type="text"
+              class="form-control"
+              id="version_update"
+              name="app_version"
+              placeholder="1.0.1"
+              required
+            />
+            <div class="form-text">
+              Version number for this update (e.g., 1.0.1)
+            </div>
+          </div>
+          <div class="mb-3">
+            <label for="file" class="form-label">Select IPA File</label>
+            <input
+              type="file"
+              class="form-control"
+              id="update_file"
+              name="file"
+              accept=".ipa"
+              required
+            />
+            <div class="form-text">
+              Only .ipa files are accepted. Maximum size: 500MB
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary">
+            Upload New Version
+          </button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">Upload Instructions</div>
+  <div class="card-body">
+    <h5 class="card-title">How to Upload an App</h5>
+    <ol>
+      <li>
+        Export your app as an IPA file from Xcode or other development tools
+      </li>
+      <li>Enter the app name and version number</li>
+      <li>Select the IPA file using the form above</li>
+      <li>
+        Click "Upload App" to add a new app or "Upload New Version" to update an
+        existing app
+      </li>
+      <li>Once uploaded, the app will be available for installation</li>
+    </ol>
+    <p class="card-text">
+      For enterprise distribution, make sure your IPA is signed with an
+      Enterprise certificate or Ad Hoc provisioning profile.
+    </p>
+  </div>
+</div>
+
+<!-- JavaScript to suggest app name and version from filename -->
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    // For new app upload
+    document.getElementById("file").addEventListener("change", function (e) {
+      const fileName = e.target.files[0]?.name || "";
+      if (fileName) {
+        suggestAppInfoFromFilename(fileName, "app_name", "app_version");
+      }
+    });
+
+    // For version update
+    document
+      .getElementById("update_file")
+      .addEventListener("change", function (e) {
+        const fileName = e.target.files[0]?.name || "";
+        if (fileName) {
+          suggestAppInfoFromFilename(fileName, null, "version_update");
+        }
+      });
+
+    function suggestAppInfoFromFilename(fileName, nameField, versionField) {
+      // Remove .ipa extension
+      let baseName = fileName.replace(/\.ipa$/i, "");
+
+      // Try to match version pattern (e.g., 1.0.0, v2.3.4, etc.)
+      const versionRegex = /[vV]?(\d+\.\d+(\.\d+)?)/;
+      const versionMatch = baseName.match(versionRegex);
+
+      if (versionMatch && versionField) {
+        document.getElementById(versionField).value = versionMatch[1];
+
+        // Remove version from basename for app name
+        baseName = baseName.replace(versionRegex, "").trim();
+        // Remove common separators
+        baseName = baseName.replace(/[-_\.]+/g, " ").trim();
+      }
+
+      // Set app name if field exists and not already filled
+      if (nameField && document.getElementById(nameField).value === "") {
+        // Convert to title case
+        const appName = baseName.replace(/\w\S*/g, function (txt) {
+          return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
+        });
+        document.getElementById(nameField).value = appName;
+      }
+    }
+  });
+</script>
+{% endblock %}

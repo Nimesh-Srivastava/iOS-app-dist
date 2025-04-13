@@ -1,0 +1,13 @@
+# Keys
+*.pem
+
+# Local storage
+builds/
+data/
+uploads/
+
+# Env variables
+*.env
+
+# Temporary files
+temp/

@@ -1,0 +1,72 @@
+# iOS App Distribution Platform
+
+This platform allows you to build and distribute iOS apps directly from GitHub repositories or by uploading IPA files.
+
+## GitHub Actions Integration
+
+This project now includes GitHub Actions support for automated iOS app building. When you push code to your repository, GitHub Actions can automatically build your iOS app and store the build artifacts.
+
+### Setup Instructions
+
+1. **Fork or clone this repository** to your GitHub account.
+
+2. **Set up required secrets** in your GitHub repository:
+
+   - Go to your repository on GitHub
+   - Navigate to Settings > Secrets and variables > Actions
+   - Add the following secrets:
+     - `APPLE_TEAM_ID`: Your Apple Developer Team ID
+     - `MONGO_URI`: Your MongoDB connection string
+     - `DB_NAME`: Your database name
+     - `SECRET_KEY`: Secret key for app security
+
+3. **Customize the workflow** in `.github/workflows/build-ios-app.yml` if needed.
+
+4. **Push your changes** to trigger the workflow, or manually run it from the Actions tab.
+
+### How It Works
+
+The GitHub Actions workflow:
+
+1. Runs on a macOS environment to have access to Xcode
+2. Sets up Python and installs dependencies
+3. Configures Xcode with the latest stable version
+4. Uses your app's `build_ios_app_from_github` function to build the app
+5. Saves build artifacts for download
+
+### Workflow Triggers
+
+The workflow runs automatically when:
+
+- You push to the `main` or `master` branch
+- A pull request is opened against the `main` or `master` branch
+- You manually trigger it from the GitHub Actions tab
+
+### Viewing Build Results
+
+1. Go to the Actions tab in your GitHub repository
+2. Click on the workflow run
+3. Download the build artifacts from the Summary page
+4. The build is also recorded in your app's database for viewing in the web interface
+
+## Manual Build Process
+
+You can also trigger builds manually through the web interface:
+
+1. Log in to the app
+2. Navigate to the GitHub Build page
+3. Enter your repository URL, branch, and other details
+4. Click "Start Build"
+
+## Troubleshooting
+
+- **Build fails on GitHub Actions**: Check the workflow logs for detailed error messages.
+- **Missing Xcode components**: Ensure the GitHub macOS runner has the necessary Xcode components.
+- **Database connection issues**: Verify your MongoDB connection string in the secrets.
+
+## Requirements
+
+- Python 3.7+
+- Flask
+- MongoDB
+- For local building: macOS with Xcode installed

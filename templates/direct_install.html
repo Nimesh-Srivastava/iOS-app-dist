@@ -1,0 +1,50 @@
+{% extends 'base.html' %} {% block title %}Direct Install {{ app.name }}{%
+endblock %} {% block content %}
+<div class="row justify-content-center">
+	<div class="col-md-8">
+		<div class="card text-center">
+			<div class="card-header">Direct Installation</div>
+			<div class="card-body">
+				<h1 class="display-4 mb-4">{{ app.name }}</h1>
+				<p class="lead">Version {{ app.version }}</p>
+
+				<div class="mb-4">
+					<p>Download the IPA file to your device:</p>
+					<a
+						href="{{ download_url }}"
+						class="btn btn-lg btn-primary mb-3"
+						>Download IPA</a
+					>
+
+					<div class="alert alert-info">
+						<h5>Installation Instructions</h5>
+						<p>For development/testing devices:</p>
+						<ol class="text-start">
+							<li>Download the IPA file</li>
+							<li>Install using Apple Configurator 2 or Xcode</li>
+							<li>Trust the developer profile in Settings</li>
+						</ol>
+
+						<p>For distribution to real users, you should:</p>
+						<ol class="text-start">
+							<li>Use TestFlight for beta testing</li>
+							<li>Use App Store for production apps</li>
+							<li>
+								Or use an MDM solution for enterprise
+								distribution
+							</li>
+						</ol>
+					</div>
+				</div>
+			</div>
+			<div class="card-footer text-muted">
+				<a
+					href="{{ url_for('app_detail', app_id=app.id) }}"
+					class="btn btn-outline-secondary"
+					>Back to App Details</a
+				>
+			</div>
+		</div>
+	</div>
+</div>
+{% endblock %}

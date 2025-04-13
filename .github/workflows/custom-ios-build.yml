@@ -1,0 +1,282 @@
+name: Custom iOS Build
+
+on:
+  workflow_dispatch:  # Allows manual triggering with parameters
+    inputs:
+      scheme:
+        description: 'Xcode scheme to build'
+        required: false
+        type: string
+      configuration:
+        description: 'Build configuration (Debug/Release)'
+        required: true
+        default: 'Release'
+        type: choice
+        options:
+        - Debug
+        - Release
+      xcode_version:
+        description: 'Xcode version'
+        required: true
+        default: 'latest'
+        type: choice
+        options:
+        - latest
+        - 15.3
+        - 15.2
+        - 15.1
+        - 15.0
+        - 14.3
+      simulator_run:
+        description: 'Run tests on simulator'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  build:
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      
+    - name: Set up Xcode
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: ${{ github.event.inputs.xcode_version || 'latest-stable' }}
+        
+    - name: Setup Ruby for CocoaPods
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '3.0'
+        bundler-cache: true
+        
+    - name: Install CocoaPods dependencies
+      run: |
+        gem install cocoapods
+        pod install --repo-update || echo "No Podfile found or pod install failed, continuing anyway"
+        
+    - name: Setup Python for build integration
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install requests pymongo python-dotenv
+        
+    - name: Find Xcode project/workspace files
+      id: xcode_finder
+      run: |
+        # Find .xcodeproj files
+        XCODEPROJ_FILES=$(find . -maxdepth 3 -name "*.xcodeproj" | head -n 1)
+        echo "Found Xcode project files: $XCODEPROJ_FILES"
+        echo "xcodeproj_file=$XCODEPROJ_FILES" >> $GITHUB_ENV
+        
+        # Find .xcworkspace files
+        XCWORKSPACE_FILES=$(find . -maxdepth 3 -name "*.xcworkspace" | head -n 1)
+        echo "Found Xcode workspace files: $XCWORKSPACE_FILES"
+        echo "xcworkspace_file=$XCWORKSPACE_FILES" >> $GITHUB_ENV
+        
+        # Determine build file to use (prefer workspace if available)
+        if [ ! -z "$XCWORKSPACE_FILES" ]; then
+          echo "Using workspace file: $XCWORKSPACE_FILES"
+          echo "build_type=workspace" >> $GITHUB_ENV
+          echo "build_file=$XCWORKSPACE_FILES" >> $GITHUB_ENV
+        elif [ ! -z "$XCODEPROJ_FILES" ]; then
+          echo "Using project file: $XCODEPROJ_FILES"
+          echo "build_type=project" >> $GITHUB_ENV
+          echo "build_file=$XCODEPROJ_FILES" >> $GITHUB_ENV
+        else
+          echo "No Xcode project or workspace files found"
+          exit 1
+        fi
+        
+    - name: Find available schemes
+      id: scheme_finder
+      run: |
+        if [ "${{ env.build_type }}" == "workspace" ]; then
+          SCHEMES=$(xcodebuild -workspace "${{ env.build_file }}" -list | grep -A 100 "Schemes:" | grep -v "Schemes:" | grep -v "^$" | xargs)
+        else
+          SCHEMES=$(xcodebuild -project "${{ env.build_file }}" -list | grep -A 100 "Schemes:" | grep -v "Schemes:" | grep -v "^$" | xargs)
+        fi
+        echo "Available schemes: $SCHEMES"
+        
+        # Set scheme name, either from input or first available
+        if [ -n "${{ github.event.inputs.scheme }}" ]; then
+          SCHEME_NAME="${{ github.event.inputs.scheme }}"
+        else
+          SCHEME_NAME=$(echo $SCHEMES | cut -d' ' -f1)
+        fi
+        
+        echo "Using scheme: $SCHEME_NAME"
+        echo "scheme_name=$SCHEME_NAME" >> $GITHUB_ENV
+        
+    - name: Build iOS app
+      env:
+        APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      run: |
+        # Set build configuration
+        BUILD_CONFIG="${{ github.event.inputs.configuration }}"
+        echo "Using build configuration: $BUILD_CONFIG"
+        
+        # Create archive path
+        ARCHIVE_PATH="./build/${{ env.scheme_name }}.xcarchive"
+        
+        # Create xcodebuild command
+        if [ "${{ env.build_type }}" == "workspace" ]; then
+          CMD="xcodebuild -workspace ${{ env.build_file }} -scheme ${{ env.scheme_name }} -configuration $BUILD_CONFIG"
+        else
+          CMD="xcodebuild -project ${{ env.build_file }} -scheme ${{ env.scheme_name }} -configuration $BUILD_CONFIG"
+        fi
+        
+        # Add team ID if available
+        if [ -n "$APPLE_TEAM_ID" ]; then
+          CMD="$CMD -teamID $APPLE_TEAM_ID"
+        fi
+        
+        # Run simulator tests if requested
+        if [ "${{ github.event.inputs.simulator_run }}" == "true" ]; then
+          echo "Running tests on simulator"
+          $CMD -destination 'platform=iOS Simulator,name=iPhone 14,OS=latest' clean test | xcpretty
+        fi
+        
+        # Build the archive
+        echo "Building archive..."
+        $CMD -archivePath "$ARCHIVE_PATH" archive | xcpretty
+        
+        # Check if archive was created
+        if [ ! -d "$ARCHIVE_PATH" ]; then
+          echo "Archive creation failed"
+          exit 1
+        fi
+        
+        # Create export options plist
+        cat > exportOptions.plist << EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>method</key>
+    <string>development</string>
+    <key>compileBitcode</key>
+    <false/>
+    <key>teamID</key>
+    <string>${APPLE_TEAM_ID:-"YOUR_TEAM_ID"}</string>
+</dict>
+</plist>
+EOF
+        
+        # Export IPA
+        echo "Exporting IPA..."
+        xcodebuild -exportArchive -archivePath "$ARCHIVE_PATH" -exportPath "./build/export" -exportOptionsPlist exportOptions.plist | xcpretty
+        
+        # Check for IPA file
+        IPA_FILES=$(find ./build/export -name "*.ipa")
+        if [ -z "$IPA_FILES" ]; then
+          echo "No IPA file was produced"
+          exit 1
+        fi
+        
+        echo "IPA file created: $IPA_FILES"
+        cp $IPA_FILES ./build/${{ env.scheme_name }}.ipa
+        
+    - name: Upload IPA file to app distribution system
+      if: success()
+      env:
+        MONGO_URI: ${{ secrets.MONGO_URI }}
+        DB_NAME: ${{ secrets.DB_NAME }}
+        SECRET_KEY: ${{ secrets.SECRET_KEY }}
+      run: |
+        # Create a Python script to upload the IPA to your distribution system
+        cat > upload_build.py << EOF
+import sys
+import os
+import uuid
+import base64
+import logging
+from datetime import datetime
+sys.path.append('.')
+try:
+    import database as db
+    from app import load_default_icon
+    logging.basicConfig(level=logging.INFO)
+    
+    # Initialize DB
+    db.initialize_db()
+    
+    # Parameters
+    build_id = str(uuid.uuid4())
+    scheme_name = os.environ.get('scheme_name', 'app')
+    ipa_path = f"./build/{scheme_name}.ipa"
+    
+    if not os.path.exists(ipa_path):
+        logging.error(f"IPA file not found at {ipa_path}")
+        sys.exit(1)
+        
+    # Read IPA file
+    with open(ipa_path, 'rb') as f:
+        ipa_data = f.read()
+        
+    # Generate default icon
+    try:
+        from app import load_default_icon
+        default_icon = load_default_icon()
+    except:
+        # Fallback icon
+        default_icon = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+        
+    # Create app entry
+    app_info = {
+        'id': str(uuid.uuid4()),
+        'name': scheme_name,
+        'bundle_id': f"com.github.{scheme_name.lower()}",
+        'version': '1.0.0',
+        'build_number': '1',
+        'icon': default_icon,
+        'ipa_data': base64.b64encode(ipa_data).decode('utf-8'),
+        'creation_date': datetime.now().isoformat(),
+        'source': f"GitHub Actions: {os.environ.get('GITHUB_REPOSITORY', 'unknown')}",
+        'build_id': build_id
+    }
+    
+    # Save to database
+    db.save_app(app_info)
+    logging.info(f"App saved to database with ID: {app_info['id']}")
+    
+    # Create build record
+    build_record = {
+        'id': build_id,
+        'repo_url': f"https://github.com/{os.environ.get('GITHUB_REPOSITORY', 'unknown')}",
+        'branch': os.environ.get('GITHUB_REF_NAME', 'unknown'),
+        'app_name': scheme_name,
+        'build_config': os.environ.get('BUILD_CONFIG', 'Release'),
+        'status': 'completed',
+        'start_time': datetime.now().isoformat(),
+        'end_time': datetime.now().isoformat(),
+        'log': "Built successfully with GitHub Actions custom workflow."
+    }
+    
+    # Save build record
+    db.save_build(build_record)
+    logging.info(f"Build record saved with ID: {build_id}")
+    
+    print(f"IPA uploaded successfully! App ID: {app_info['id']}")
+except Exception as e:
+    logging.error(f"Error uploading build: {str(e)}")
+    sys.exit(1)
+EOF
+        
+        python upload_build.py || echo "IPA upload to distribution system failed"
+        
+    - name: Archive build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: ios-app-build
+        path: |
+          ./build/*.ipa
+          ./build/export/
+          ./build/*.xcarchive/
+        retention-days: 5 

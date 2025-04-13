@@ -1,0 +1,46 @@
+{% extends 'base.html' %} {% block title %}Build Log{% endblock %} {% block
+content %}
+<div class="container mt-4">
+  <h2>Build Log for {{ build.app_name }}</h2>
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <span
+        class="badge {% if build.status == 'completed' %}bg-success{% elif build.status == 'failed' %}bg-danger{% elif build.status == 'in_progress' %}bg-warning{% else %}bg-secondary{% endif %}"
+      >
+        {{ build.status | title }}
+      </span>
+      <small class="text-muted ms-2">
+        Started: {{ build.start_time }} {% if build.end_time %} | Completed: {{
+        build.end_time }} {% endif %}
+      </small>
+    </div>
+    <div>
+      <a href="{{ url_for('github_build') }}" class="btn btn-sm btn-secondary"
+        >Back to Builds</a
+      >
+      {% if build.status == 'completed' %}
+      <a
+        href="{{ url_for('download_build', build_id=build.id) }}"
+        class="btn btn-sm btn-primary"
+        >Download IPA</a
+      >
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <strong>Repository:</strong> {{ build.repo_url }} ({{ build.branch }})
+    </div>
+    <div class="card-body">
+      <pre
+        class="build-log p-3 rounded"
+        style="max-height: 500px; overflow-y: auto"
+      >
+{{ build.log }}</pre
+      >
+    </div>
+  </div>
+</div>
+{% endblock %}

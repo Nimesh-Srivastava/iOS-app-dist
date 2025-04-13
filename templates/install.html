@@ -1,0 +1,43 @@
+
+{% extends 'base.html' %}
+
+{% block title %}Install {{ app.name }}{% endblock %}
+
+{% block content %}
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card text-center">
+                <div class="card-header">
+                    Installation
+                </div>
+                <div class="card-body">
+                    <h1 class="display-4 mb-4">{{ app.name }}</h1>
+                    <p class="lead">Version {{ app.version }}</p>
+                    
+                    <div class="mb-4">
+                        <p>Tap the button below to install this app on your iOS device:</p>
+                        <a href="{{ install_url }}" class="btn btn-lg btn-success mb-3">Install Now</a>
+                        
+                        <p class="text-muted">
+                            <small>Note: You must open this page on your iOS device to install the app.</small>
+                        </p>
+                    </div>
+                    
+                    <div class="alert alert-info" role="alert">
+                        <h5>Installation Instructions</h5>
+                        <ol class="text-start">
+                            <li>Tap "Install Now" above</li>
+                            <li>When prompted, tap "Install" to confirm</li>
+                            <li>Go to Settings > General > Device Management</li>
+                            <li>Trust the developer profile</li>
+                            <li>Launch the app from your home screen</li>
+                        </ol>
+                    </div>
+                </div>
+                <div class="card-footer text-muted">
+                    <a href="{{ url_for('app_detail', app_id=app.id) }}" class="btn btn-outline-secondary">Back to App Details</a>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
