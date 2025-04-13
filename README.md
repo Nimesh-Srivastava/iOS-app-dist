@@ -64,9 +64,55 @@ You can also trigger builds manually through the web interface:
 - **Missing Xcode components**: Ensure the GitHub macOS runner has the necessary Xcode components.
 - **Database connection issues**: Verify your MongoDB connection string in the secrets.
 
+## MongoDB Storage
+
+This application uses MongoDB for all data storage, including:
+
+- User accounts and authentication
+- App metadata and version information
+- Build records and logs
+- IPA files and other binary assets
+
+### MongoDB Configuration
+
+The application requires the following environment variables for MongoDB configuration:
+
+- `MONGO_URI`: Your MongoDB connection string (e.g., "mongodb://localhost:27017/" or a MongoDB Atlas URI)
+- `DB_NAME`: The name of the database to use (default: "app_distribution")
+
+### MongoDB Collections
+
+The application uses several collections in the database:
+
+- `users`: Stores user account information
+- `apps`: Stores app metadata and version information
+- `builds`: Stores build records and logs
+- `app_shares`: Tracks app sharing permissions between users
+- `files`: Stores binary data for IPA files and other assets
+
+### File Storage
+
+Unlike previous versions that used the local filesystem, this version stores all binary files directly in MongoDB:
+
+- IPA files are stored as binary data in the `files` collection
+- File metadata (filename, size, MIME type) is stored alongside the binary data
+- This allows for easier deployment and migration between environments
+- No local file storage is required, except for temporary build files
+
 ## Requirements
 
 - Python 3.7+
 - Flask
-- MongoDB
+- pymongo
+- Pillow
 - For local building: macOS with Xcode installed
+- MongoDB 4.0+ (local instance or MongoDB Atlas)
+
+## Environment Variables
+
+- `SECRET_KEY`: Secret key for session security (required)
+- `MONGO_URI`: MongoDB connection string (required)
+- `DB_NAME`: MongoDB database name (default: "app_distribution")
+- `APPLE_TEAM_ID`: Your Apple Developer Team ID (optional, used for builds)
+- `GITHUB_REPO_URL`: Default GitHub repository URL (optional)
+- `TZ`: Timezone for file upload timestamps (optional, default: "UTC")

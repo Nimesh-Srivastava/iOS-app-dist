@@ -12,10 +12,11 @@ import plistlib
 import sys
 import logging
 import traceback
+import io
 from datetime import datetime
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask import Flask, render_template, request, redirect, url_for, send_from_directory, flash, jsonify, session, g
+from flask import Flask, render_template, request, redirect, url_for, send_from_directory, flash, jsonify, session, g, send_file, Response
 from dotenv import load_dotenv
 
 from werkzeug.utils import secure_filename
@@ -36,17 +37,15 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'development-key')
 
 # Configuration
-UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
 ALLOWED_EXTENSIONS = {'ipa'}
-BUILD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'builds')
 APPLE_TEAM_ID = os.environ.get('APPLE_TEAM_ID', '')  # Get from environment variable
 GITHUB_REPO_URL = os.environ.get('GITHUB_REPO_URL', 'https://github.com/username/app-dist')  # GitHub repository URL
 
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+# Max content length increased for larger file uploads
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500 MB max upload size
 
-# Create necessary directories if they don't exist
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+# Directory for temporary build files
+BUILD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'builds')
 os.makedirs(BUILD_FOLDER, exist_ok=True)
 
 # Initialize database
@@ -176,103 +175,131 @@ def admin_required(f):
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-def extract_app_info(filepath):
-    """Extract app information from IPA file"""
+def extract_app_info(file_data, filename):
+    """Extract app information from IPA file data"""
     app_id = str(uuid.uuid4())
-    filename = os.path.basename(filepath)
+    file_id = str(uuid.uuid4())
     
-    # Extract info from IPA file
-    with zipfile.ZipFile(filepath, 'r') as ipa:
-        # Find Info.plist path
-        plist_path = None
-        for f in ipa.namelist():
-            if 'Info.plist' in f:
-                plist_path = f
-                break
+    # Create a temporary file to work with the data
+    with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+        temp_file.write(file_data)
+        temp_path = temp_file.name
+    
+    try:
+        # Extract info from IPA file
+        with zipfile.ZipFile(temp_path, 'r') as ipa:
+            # Find Info.plist path
+            plist_path = None
+            for f in ipa.namelist():
+                if 'Info.plist' in f:
+                    plist_path = f
+                    break
+                    
+            if plist_path:
+                with ipa.open(plist_path) as plist_file:
+                    plist_data = plistlib.load(plist_file)
+                    app_name = plist_data.get('CFBundleDisplayName', plist_data.get('CFBundleName', filename.split('.')[0]))
+                    version = plist_data.get('CFBundleShortVersionString', '1.0.0')
+                    bundle_id = plist_data.get('CFBundleIdentifier', '')
+            else:
+                app_name = filename.split('.')[0]
+                version = '1.0.0'
+                bundle_id = ''
                 
-        if plist_path:
-            with ipa.open(plist_path) as plist_file:
-                plist_data = plistlib.load(plist_file)
-                app_name = plist_data.get('CFBundleDisplayName', plist_data.get('CFBundleName', filename.split('.')[0]))
-                version = plist_data.get('CFBundleShortVersionString', '1.0.0')
-                bundle_id = plist_data.get('CFBundleIdentifier', '')
-        else:
-            app_name = filename.split('.')[0]
-            version = '1.0.0'
-            bundle_id = ''
-            
-        # Try to extract app icon
-        icon_path = None
-        for f in ipa.namelist():
-            if 'AppIcon60x60@2x.png' in f:
-                icon_path = f
-                break
-                
-        if icon_path:
-            with ipa.open(icon_path) as icon_file:
-                icon_data = icon_file.read()
-                icon_b64 = base64.b64encode(icon_data).decode()
-                icon = f"data:image/png;base64,{icon_b64}"
-        else:
-            # Use defaultApp.png as fallback
-            icon = load_default_icon()
+            # Try to extract app icon
+            icon_path = None
+            for f in ipa.namelist():
+                if 'AppIcon60x60@2x.png' in f:
+                    icon_path = f
+                    break
+                    
+            if icon_path:
+                with ipa.open(icon_path) as icon_file:
+                    icon_data = icon_file.read()
+                    icon_b64 = base64.b64encode(icon_data).decode()
+                    icon = f"data:image/png;base64,{icon_b64}"
+            else:
+                # Use defaultApp.png as fallback
+                icon = load_default_icon()
+    finally:
+        # Clean up the temporary file
+        os.unlink(temp_path)
+    
+    # Store the file in MongoDB
+    db.save_file(file_id, filename, file_data, 'application/octet-stream')
     
     return {
         "id": app_id,
         "name": app_name,
         "version": version,
         "bundle_id": bundle_id,
+        "file_id": file_id,
         "filename": filename,
         "upload_date": datetime.now().isoformat(),
-        "size": os.path.getsize(filepath),
+        "size": len(file_data),
         "icon": icon,
         "versions": [{
             "version": version,
+            "file_id": file_id,
             "filename": filename,
             "upload_date": datetime.now().isoformat(),
-            "size": os.path.getsize(filepath)
+            "size": len(file_data)
         }]
     }
 
-def add_app_version(app_id, filepath, version=None):
+def add_app_version(app_id, file_data, filename, version=None):
     """Add a new version to an existing app"""
     app = db.get_app(app_id)
     if not app:
         return None
 
-    filename = os.path.basename(filepath)
+    file_id = str(uuid.uuid4())
     
-    # If version is not provided, extract it from the IPA
-    if version is None:
-        try:
-            with zipfile.ZipFile(filepath, 'r') as ipa:
-                plist_path = None
-                for f in ipa.namelist():
-                    if 'Info.plist' in f:
-                        plist_path = f
-                        break
-                        
-                if plist_path:
-                    with ipa.open(plist_path) as plist_file:
-                        plist_data = plistlib.load(plist_file)
-                        version = plist_data.get('CFBundleShortVersionString', '1.0.0')
-                else:
-                    version = "1.0.0"
-        except Exception as e:
-            logging.error(f"Error extracting version from IPA: {str(e)}")
-            version = "1.0.0"
+    # Create a temporary file to work with the data
+    with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+        temp_file.write(file_data)
+        temp_path = temp_file.name
+    
+    try:
+        # If version is not provided, extract it from the IPA
+        if version is None:
+            try:
+                with zipfile.ZipFile(temp_path, 'r') as ipa:
+                    plist_path = None
+                    for f in ipa.namelist():
+                        if 'Info.plist' in f:
+                            plist_path = f
+                            break
+                            
+                    if plist_path:
+                        with ipa.open(plist_path) as plist_file:
+                            plist_data = plistlib.load(plist_file)
+                            version = plist_data.get('CFBundleShortVersionString', '1.0.0')
+                    else:
+                        version = "1.0.0"
+            except Exception as e:
+                logging.error(f"Error extracting version from IPA: {str(e)}")
+                version = "1.0.0"
+    finally:
+        # Clean up the temporary file
+        os.unlink(temp_path)
+    
+    # Store the file in MongoDB
+    db.save_file(file_id, filename, file_data, 'application/octet-stream')
     
     # Update app with new version
     app['version'] = version
+    app['file_id'] = file_id
     app['filename'] = filename
-    app['size'] = os.path.getsize(filepath)
+    app['size'] = len(file_data)
     
     # Add to versions history
     app['versions'].append({
         "version": version,
+        "file_id": file_id,
         "filename": filename,
         "upload_date": datetime.now().isoformat(),
-        "size": os.path.getsize(filepath)
+        "size": len(file_data)
     })
     
     # Save updated app to database
@@ -737,6 +764,11 @@ def build_ios_app_from_github(build_id, repo_url, branch, app_name, build_config
         # Generate a default icon for the app
         default_icon = load_default_icon()
         
+        # Store the file in MongoDB
+        file_id = str(uuid.uuid4())
+        app_filename = f"{app_name or scheme_name}.ipa"
+        db.save_file(file_id, app_filename, ipa_data, 'application/octet-stream')
+        
         # Create app entry in the database
         app_info = {
             'id': str(uuid.uuid4()),
@@ -745,10 +777,19 @@ def build_ios_app_from_github(build_id, repo_url, branch, app_name, build_config
             'version': '1.0.0',
             'build_number': '1',
             'icon': default_icon,
-            'ipa_data': base64.b64encode(ipa_data).decode('utf-8'),
+            'file_id': file_id,
+            'filename': app_filename,
+            'size': len(ipa_data),
             'creation_date': datetime.now().isoformat(),
             'source': f"GitHub: {repo_url} (branch: {branch})",
-            'build_id': build_id  # Store the build ID to link back to the build
+            'build_id': build_id,  # Store the build ID to link back to the build
+            'versions': [{
+                'version': '1.0.0',
+                'file_id': file_id,
+                'filename': app_filename,
+                'upload_date': datetime.now().isoformat(),
+                'size': len(ipa_data)
+            }]
         }
         
         try:
@@ -904,30 +945,9 @@ def upload():
             
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
-            filepath = os.path.join(UPLOAD_FOLDER, filename)
-            file.save(filepath)
+            file_data = file.read()  # Read file data directly
             
-            # If no version provided, try to extract it from the IPA
-            if not app_version:
-                try:
-                    with zipfile.ZipFile(filepath, 'r') as ipa:
-                        plist_path = None
-                        for f in ipa.namelist():
-                            if 'Info.plist' in f:
-                                plist_path = f
-                                break
-                                
-                        if plist_path:
-                            with ipa.open(plist_path) as plist_file:
-                                plist_data = plistlib.load(plist_file)
-                                app_version = plist_data.get('CFBundleShortVersionString', '1.0.0')
-                        else:
-                            app_version = "1.0.0"
-                except Exception as e:
-                    logging.error(f"Error extracting version from IPA: {str(e)}")
-                    app_version = "1.0.0"
-                    
-                logging.info(f"Auto-detected version {app_version} from IPA file")
+            # If no version provided, it will be extracted in the respective functions
             
             if app_id:  # Adding a new version to existing app
                 app = db.get_app(app_id)
@@ -935,46 +955,27 @@ def upload():
                     flash("App not found")
                     return redirect(request.url)
                 
-                # Update app with new version
-                app['version'] = app_version
-                app['filename'] = filename
-                app['size'] = os.path.getsize(filepath)
-                
-                # Add to versions history
-                app['versions'].append({
-                    "version": app_version,
-                    "filename": filename,
-                    "upload_date": datetime.now().isoformat(),
-                    "size": os.path.getsize(filepath)
-                })
-                
-                # Save updated app to database
-                db.save_app(app)
-                flash(f"New version {app_version} added for {app['name']}")
+                # Add new version
+                updated_app = add_app_version(app_id, file_data, filename, app_version)
+                if updated_app:
+                    flash(f"New version {app_version or updated_app['version']} added for {updated_app['name']}")
+                else:
+                    flash("Error adding new version")
             else:  # Adding a new app
-                # Extract info from IPA file for defaults
-                extracted_info = extract_app_info(filepath)
+                # Extract info and store the file
+                app_info = extract_app_info(file_data, filename)
                 
-                # Create new app with user-provided info
-                app_info = {
-                    "id": extracted_info["id"],
-                    "name": app_name,
-                    "version": app_version,
-                    "bundle_id": bundle_id if bundle_id else extracted_info["bundle_id"],
-                    "filename": filename,
-                    "upload_date": datetime.now().isoformat(),
-                    "size": os.path.getsize(filepath),
-                    "icon": extracted_info["icon"],
-                    "versions": [{
-                        "version": app_version,
-                        "filename": filename,
-                        "upload_date": datetime.now().isoformat(),
-                        "size": os.path.getsize(filepath)
-                    }]
-                }
+                # Override with user-provided info
+                if app_name:
+                    app_info['name'] = app_name
+                if app_version:
+                    app_info['version'] = app_version
+                    app_info['versions'][0]['version'] = app_version
+                if bundle_id:
+                    app_info['bundle_id'] = bundle_id
                 
                 db.save_app(app_info)
-                flash(f"App {app_name} (v{app_version}) uploaded successfully")
+                flash(f"App {app_info['name']} (v{app_info['version']}) uploaded successfully")
                 
             return redirect(url_for('index'))
     
@@ -1071,31 +1072,28 @@ def download_build(build_id):
         flash("App not found for this build")
         return redirect(url_for('github_build'))
     
-    # Generate a filename for the IPA
-    filename = f"{app['name'].replace(' ', '_')}_{app['version']}.ipa"
-    
-    # For GitHub-built apps with ipa_data
-    if 'ipa_data' in app:
-        # Create a temporary file with the IPA data
-        temp_dir = tempfile.mkdtemp()
-        temp_file_path = os.path.join(temp_dir, filename)
-        
-        try:
-            # Decode base64 data and write to temporary file
-            ipa_data = base64.b64decode(app['ipa_data'])
-            with open(temp_file_path, 'wb') as f:
-                f.write(ipa_data)
-                
-            return send_from_directory(temp_dir, filename, as_attachment=True)
-        except Exception as e:
-            flash(f"Error preparing download: {str(e)}")
-            return redirect(url_for('github_build'))
-    elif 'filename' in app:
-        # For directly uploaded apps or if ipa_data is not present
-        return send_from_directory(UPLOAD_FOLDER, os.path.basename(app['filename']), as_attachment=True)
-    else:
-        flash("App does not have an associated IPA file")
+    # Get the file_id
+    if 'file_id' not in app:
+        flash("No file associated with this build")
         return redirect(url_for('github_build'))
+    
+    file_id = app['file_id']
+    file_doc = db.get_file(file_id)
+    
+    if not file_doc or 'data' not in file_doc:
+        flash("File data not found")
+        return redirect(url_for('github_build'))
+    
+    # Generate an appropriate filename
+    filename = app.get('filename', f"{app['name'].replace(' ', '_')}_{app['version']}.ipa")
+    
+    # Serve the file directly from memory
+    return send_file(
+        io.BytesIO(file_doc['data']),
+        mimetype=file_doc.get('content_type', 'application/octet-stream'),
+        as_attachment=True,
+        download_name=filename
+    )
 
 @app.route('/build_log/<build_id>')
 @login_required
@@ -1181,26 +1179,38 @@ def download_app(app_id, filename):
     if not app:
         flash("App not found")
         return redirect(url_for('index'))
-        
-    # Check if this is a GitHub-built app (which has ipa_data instead of a file)
-    if 'ipa_data' in app:
-        # Create a temporary file with the IPA data
-        temp_dir = tempfile.mkdtemp()
-        temp_file_path = os.path.join(temp_dir, filename)
-        
-        try:
-            # Decode base64 data and write to temporary file
-            ipa_data = base64.b64decode(app['ipa_data'])
-            with open(temp_file_path, 'wb') as f:
-                f.write(ipa_data)
-                
-            return send_from_directory(temp_dir, filename, as_attachment=True)
-        except Exception as e:
-            flash(f"Error preparing download: {str(e)}")
-            return redirect(url_for('app_detail', app_id=app_id))
-    else:
-        # For traditional uploads, serve from the upload folder
-        return send_from_directory(UPLOAD_FOLDER, filename, as_attachment=True)
+    
+    # Find the file_id based on filename (could be main app or a version)
+    file_id = None
+    
+    # Check if main app file
+    if 'file_id' in app and app.get('filename') == filename:
+        file_id = app['file_id']
+    
+    # Check in versions if not found
+    if file_id is None and 'versions' in app:
+        for version in app['versions']:
+            if version.get('filename') == filename and 'file_id' in version:
+                file_id = version['file_id']
+                break
+    
+    if file_id is None:
+        flash("File not found")
+        return redirect(url_for('app_detail', app_id=app_id))
+    
+    # Get the file from MongoDB
+    file_doc = db.get_file(file_id)
+    if not file_doc or 'data' not in file_doc:
+        flash("File data not found")
+        return redirect(url_for('app_detail', app_id=app_id))
+    
+    # Serve the file directly from memory
+    return send_file(
+        io.BytesIO(file_doc['data']),
+        mimetype=file_doc.get('content_type', 'application/octet-stream'),
+        as_attachment=True,
+        download_name=filename
+    )
 
 @app.route('/install/<app_id>')
 def install(app_id):
@@ -1225,7 +1235,7 @@ def direct_install(app_id):
     app = db.get_app(app_id)
     if app:
         # Set up download URL based on app type
-        if 'ipa_data' in app:
+        if 'file_id' in app:
             # For GitHub-built apps, use a generated filename
             filename = f"{app['name'].replace(' ', '_')}_{app['version']}.ipa"
         else:
@@ -1246,7 +1256,7 @@ def app_manifest(app_id):
     
     # Generate a dynamic manifest plist for the app
     # Set up download URL based on app type
-    if 'ipa_data' in app:
+    if 'file_id' in app:
         # For GitHub-built apps, use a generated filename
         filename = f"{app['name'].replace(' ', '_')}_{app['version']}.ipa"
     else:
@@ -1296,19 +1306,7 @@ def delete_app(app_id):
     
     if app:
         try:
-            # Delete physical files for manually uploaded apps
-            if 'versions' in app and app['versions']:
-                for version in app['versions']:
-                    try:
-                        if 'filename' in version:
-                            filepath = os.path.join(UPLOAD_FOLDER, version['filename'])
-                            if os.path.exists(filepath):
-                                os.remove(filepath)
-                                logging.info(f"Deleted file: {filepath}")
-                    except Exception as e:
-                        logging.error(f"Error deleting file for version {version.get('version', 'unknown')}: {str(e)}")
-            
-            # Delete the app from the database
+            # Delete the app (files are deleted in db.delete_app)
             db.delete_app(app_id)
             flash(f"App {app['name']} deleted successfully")
         except Exception as e:
@@ -1444,4 +1442,8 @@ def unshare_app(app_id, username):
     return redirect(url_for('app_detail', app_id=app_id))
 
 if __name__ == '__main__':
+    # Ensure the build directory exists for temporary build files
+    os.makedirs(BUILD_FOLDER, exist_ok=True)
+    
+    # Run the application
     app.run(debug=True, host='0.0.0.0', port=5000, ssl_context=('cert.pem', 'key.pem'))

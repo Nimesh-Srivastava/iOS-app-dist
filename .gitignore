@@ -11,3 +11,7 @@ uploads/
 
 # Temporary files
 temp/
+migrate_to_mongodb.py
+
+# Log files
+migration.log

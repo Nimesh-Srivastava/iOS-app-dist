@@ -19,6 +19,7 @@ users_collection = db['users']
 apps_collection = db['apps']
 builds_collection = db['builds']
 app_shares_collection = db['app_shares']  # New collection for tracking app sharing
+files_collection = db['files']  # New collection for storing IPA files
 
 def initialize_db():
     """Initialize database with default data if empty"""
@@ -27,6 +28,7 @@ def initialize_db():
     apps_collection.create_index('id', unique=True)
     builds_collection.create_index('id', unique=True)
     app_shares_collection.create_index([('app_id', 1), ('username', 1)], unique=True)  # Composite index
+    files_collection.create_index('file_id', unique=True)  # Index for file storage
     
     # Create default admin user if no users exist
     if users_collection.count_documents({}) == 0:
@@ -106,8 +108,13 @@ def save_app(app_data):
     )
 
 def delete_app(app_id):
-    """Delete an app"""
+    """Delete an app and all associated files"""
+    # Delete files first
+    delete_app_files(app_id)
+    
+    # Then delete the app
     apps_collection.delete_one({'id': app_id})
+    
     # Remove any shares for this app
     app_shares_collection.delete_many({'app_id': app_id})
 
@@ -209,4 +216,93 @@ def update_build_status(build_id, status, log=None, end_time=None):
         {'id': build_id},
         {'$set': update_data}
     )
-    return True 
+    return True
+
+# File storage operations
+def save_file(file_id, filename, file_data, content_type='application/octet-stream'):
+    """
+    Store a file in MongoDB
+    
+    Args:
+        file_id (str): Unique identifier for the file
+        filename (str): Original filename
+        file_data (bytes): Binary content of the file
+        content_type (str): MIME type of the file
+        
+    Returns:
+        str: The file_id
+    """
+    file_doc = {
+        'file_id': file_id,
+        'filename': filename,
+        'content_type': content_type,
+        'size': len(file_data),
+        'data': file_data,
+        'upload_date': os.environ.get('TZ', 'UTC')
+    }
+    
+    files_collection.update_one(
+        {'file_id': file_id},
+        {'$set': file_doc},
+        upsert=True
+    )
+    
+    return file_id
+
+def get_file(file_id):
+    """
+    Retrieve a file from MongoDB
+    
+    Args:
+        file_id (str): Unique identifier for the file
+        
+    Returns:
+        dict or None: The file document if found, None otherwise
+    """
+    return files_collection.find_one({'file_id': file_id}, {'_id': 0})
+
+def delete_file(file_id):
+    """
+    Delete a file from MongoDB
+    
+    Args:
+        file_id (str): Unique identifier for the file
+        
+    Returns:
+        bool: True if the file was deleted, False otherwise
+    """
+    result = files_collection.delete_one({'file_id': file_id})
+    return result.deleted_count > 0
+
+def delete_app_files(app_id):
+    """
+    Delete all files associated with an app
+    
+    Args:
+        app_id (str): App identifier
+        
+    Returns:
+        int: Number of files deleted
+    """
+    # First, find all file IDs associated with this app
+    app = get_app(app_id)
+    files_to_delete = []
+    
+    if app:
+        # Add main app file if exists
+        if 'file_id' in app:
+            files_to_delete.append(app['file_id'])
+        
+        # Add versions files if exist
+        if 'versions' in app:
+            for version in app['versions']:
+                if 'file_id' in version:
+                    files_to_delete.append(version['file_id'])
+    
+    # Delete all files found
+    deleted_count = 0
+    for file_id in files_to_delete:
+        if delete_file(file_id):
+            deleted_count += 1
+    
+    return deleted_count 
