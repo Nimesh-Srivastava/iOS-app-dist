@@ -1,242 +1,305 @@
-{% extends 'base.html' %} {% block title %}Build from GitHub{% endblock %} {%
-block content %}
-<div class="container mt-4">
-  <h2>Build iOS App from GitHub Repository</h2>
-
-  {% with messages = get_flashed_messages() %} {% if messages %} {% for message
-  in messages %}
-  <div class="alert alert-info">{{ message }}</div>
-  {% endfor %} {% endif %} {% endwith %}
-
-  <div class="card mb-4">
-    <div class="card-header">
-      <h5 class="mb-0">New Build</h5>
-    </div>
-    <div class="card-body">
-      <form method="POST" enctype="multipart/form-data">
-        <div class="mb-3">
-          <label for="repo_url" class="form-label">GitHub Repository URL</label>
-          <input
-            type="text"
-            class="form-control"
-            id="repo_url"
-            name="repo_url"
-            placeholder="https://github.com/username/repository"
-            required
-          />
-          <div class="form-text">
-            Enter the full URL to the GitHub repository
-          </div>
-        </div>
-
-        <div class="mb-3">
-          <label for="branch" class="form-label">Branch/Tag</label>
-          <input
-            type="text"
-            class="form-control"
-            id="branch"
-            name="branch"
-            placeholder="main"
-            value="main"
-          />
-          <div class="form-text">Branch, tag, or commit hash to build from</div>
-        </div>
-
-        <div class="mb-3">
-          <label for="app_name" class="form-label">App Name</label>
-          <input
-            type="text"
-            class="form-control"
-            id="app_name"
-            name="app_name"
-            placeholder="My iOS App"
-            required
-          />
-        </div>
-
-        <div class="mb-3">
-          <label for="certificate" class="form-label"
-            >iOS Certificate File (.p12)</label
-          >
-          <input
-            type="file"
-            class="form-control"
-            id="certificate"
-            name="certificate"
-          />
-          <div class="form-text">Optional: Upload your signing certificate</div>
-        </div>
-
-        <div class="mb-3">
-          <label for="provisioning_profile" class="form-label"
-            >Provisioning Profile (.mobileprovision)</label
-          >
-          <input
-            type="file"
-            class="form-control"
-            id="provisioning_profile"
-            name="provisioning_profile"
-          />
-          <div class="form-text">
-            Optional: Upload your provisioning profile
-          </div>
-        </div>
-
-        <div class="mb-3">
-          <label for="team_id" class="form-label">Apple Team ID</label>
-          <input
-            type="text"
-            class="form-control"
-            id="team_id"
-            name="team_id"
-            placeholder="XXXXXXXXXX"
-          />
-          <div class="form-text">
-            Your Apple Developer Team ID (10-character identifier)
-          </div>
-        </div>
-
-        <div class="mb-3">
-          <label for="build_config" class="form-label"
-            >Build Configuration</label
-          >
-          <select class="form-select" id="build_config" name="build_config">
-            <option value="Debug">Debug</option>
-            <option value="Release" selected>Release</option>
-          </select>
-        </div>
-
-        <div class="mb-3">
-          <label for="xcode_version" class="form-label">Xcode Version</label>
-          <select class="form-select" id="xcode_version" name="xcode_version">
-            <option value="latest" selected>Latest Available</option>
-            <option value="15.3">Xcode 15.3</option>
-            <option value="15.2">Xcode 15.2</option>
-            <option value="15.1">Xcode 15.1</option>
-            <option value="15.0">Xcode 15.0</option>
-            <option value="14.3">Xcode 14.3</option>
-            <option value="14.2">Xcode 14.2</option>
-            <option value="14.1">Xcode 14.1</option>
-            <option value="14.0">Xcode 14.0</option>
-          </select>
-        </div>
-
-        <button type="submit" class="btn btn-primary">Start Build</button>
-      </form>
-    </div>
-  </div>
-
-  <!-- GitHub Actions Card -->
-  <div class="card mb-4">
-    <div class="card-header bg-primary text-white">
-      <h5 class="mb-0">
-        <i class="fas fa-sync-alt"></i> GitHub Actions Integration
-      </h5>
-    </div>
-    <div class="card-body">
-      <p>
-        <strong>NEW!</strong> You can now use GitHub Actions to automate your
-        iOS app builds directly in your repository.
-      </p>
-
-      <h6 class="mt-3">Benefits:</h6>
-      <ul>
-        <li>Automated builds on every push or pull request</li>
-        <li>Build with specific Xcode versions</li>
-        <li>Run tests on iOS simulators</li>
-        <li>Customize build parameters</li>
-        <li>Artifacts uploaded automatically to this distribution system</li>
-      </ul>
-
-      <h6 class="mt-3">How to set up:</h6>
-      <ol>
-        <li>
-          Add the workflow file to your repository at
-          <code>.github/workflows/build-ios-app.yml</code>
-        </li>
-        <li>
-          Configure the required secrets in your GitHub repository settings
-        </li>
-        <li>Push to your repository or manually trigger the workflow</li>
-      </ol>
-
-      <div class="mt-3">
-        <a
-          href="{{ github_repo_url }}/blob/main/.github/workflows/build-ios-app.yml"
-          target="_blank"
-          class="btn btn-outline-primary"
-        >
-          <i class="fab fa-github"></i> View Example Workflow
-        </a>
-        <a
-          href="{{ github_repo_url }}#github-actions-integration"
-          target="_blank"
-          class="btn btn-outline-secondary"
-        >
-          <i class="fas fa-book"></i> Read Documentation
-        </a>
+{% extends 'base.html' %} {% block title %}GitHub Build - AppCenter{% endblock
+%} {% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-10">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <div>
+        <h1 class="fw-bold mb-1">GitHub Build</h1>
+        <p class="text-muted">
+          Build iOS applications directly from source code repositories
+        </p>
       </div>
+      <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left me-2"></i>Back to Apps
+      </a>
     </div>
-  </div>
 
-  {% if builds %}
-  <div class="card">
-    <div class="card-header">
-      <h5 class="mb-0">Recent Builds</h5>
-    </div>
-    <div class="card-body">
-      <div class="table-responsive">
-        <table class="table table-striped">
-          <thead>
-            <tr>
-              <th>Repository</th>
-              <th>Branch</th>
-              <th>Status</th>
-              <th>Started</th>
-              <th>Completed</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
+    <div class="row">
+      <div class="col-lg-5">
+        <!-- Build Form -->
+        <div class="card border-0 shadow-sm mb-4">
+          <div class="card-header">
+            <h5 class="mb-0">
+              <i class="fab fa-github me-2"></i>New GitHub Build
+            </h5>
+          </div>
+          <div class="card-body p-4">
+            <form
+              action="{{ url_for('github_build') }}"
+              method="post"
+              enctype="multipart/form-data"
+            >
+              <div class="mb-3">
+                <label for="repo_url" class="form-label"
+                  >GitHub Repository URL</label
+                >
+                <div class="input-group">
+                  <span class="input-group-text"
+                    ><i class="fab fa-github"></i
+                  ></span>
+                  <input
+                    type="url"
+                    class="form-control"
+                    id="repo_url"
+                    name="repo_url"
+                    value="{{ github_repo_url }}"
+                    required
+                  />
+                </div>
+                <div class="form-text">
+                  URL of the GitHub repository containing your iOS app
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label for="branch" class="form-label">Branch</label>
+                <div class="input-group">
+                  <span class="input-group-text"
+                    ><i class="fas fa-code-branch"></i
+                  ></span>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="branch"
+                    name="branch"
+                    value="main"
+                    required
+                  />
+                </div>
+                <div class="form-text">
+                  The branch to build from (e.g., main, develop)
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label for="app_name" class="form-label">App Name</label>
+                <div class="input-group">
+                  <span class="input-group-text"
+                    ><i class="fas fa-mobile-alt"></i
+                  ></span>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="app_name"
+                    name="app_name"
+                    placeholder="Optional, will use project name if not specified"
+                  />
+                </div>
+                <div class="form-text">
+                  Override the app name or leave blank to use project name
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label for="build_config" class="form-label"
+                  >Build Configuration</label
+                >
+                <div class="input-group">
+                  <span class="input-group-text"
+                    ><i class="fas fa-cog"></i
+                  ></span>
+                  <select
+                    class="form-select"
+                    id="build_config"
+                    name="build_config"
+                  >
+                    <option value="Release" selected>Release</option>
+                    <option value="Debug">Debug</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label for="team_id" class="form-label">Apple Team ID</label>
+                <div class="input-group">
+                  <span class="input-group-text"
+                    ><i class="fab fa-apple"></i
+                  ></span>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="team_id"
+                    name="team_id"
+                    placeholder="Your Apple Developer Team ID"
+                  />
+                </div>
+                <div class="form-text">Required for signing the build</div>
+              </div>
+
+              <div class="mb-3">
+                <label for="xcode_version" class="form-label"
+                  >Xcode Version</label
+                >
+                <div class="input-group">
+                  <span class="input-group-text"
+                    ><i class="fas fa-tools"></i
+                  ></span>
+                  <select
+                    class="form-select"
+                    id="xcode_version"
+                    name="xcode_version"
+                  >
+                    <option value="latest" selected>Latest Available</option>
+                    <option value="15.0">Xcode 15.0</option>
+                    <option value="14.3">Xcode 14.3</option>
+                    <option value="14.2">Xcode 14.2</option>
+                    <option value="14.1">Xcode 14.1</option>
+                    <option value="14.0">Xcode 14.0</option>
+                    <option value="13.4">Xcode 13.4</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="mb-4">
+                <label class="form-label">Signing Files (Optional)</label>
+                <div class="mb-3">
+                  <div class="input-group">
+                    <span class="input-group-text"
+                      ><i class="fas fa-certificate"></i
+                    ></span>
+                    <input
+                      type="file"
+                      class="form-control"
+                      id="certificate"
+                      name="certificate"
+                      accept=".p12,.cer"
+                    />
+                    <label class="input-group-text" for="certificate"
+                      >Certificate</label
+                    >
+                  </div>
+                  <div class="form-text">
+                    P12 or CER certificate file for signing
+                  </div>
+                </div>
+
+                <div class="input-group">
+                  <span class="input-group-text"
+                    ><i class="fas fa-id-card"></i
+                  ></span>
+                  <input
+                    type="file"
+                    class="form-control"
+                    id="provisioning_profile"
+                    name="provisioning_profile"
+                    accept=".mobileprovision,.provisionprofile"
+                  />
+                  <label class="input-group-text" for="provisioning_profile"
+                    >Profile</label
+                  >
+                </div>
+                <div class="form-text">Provisioning profile for the app</div>
+              </div>
+
+              <div class="d-grid">
+                <button type="submit" class="btn btn-primary">
+                  <i class="fas fa-rocket me-2"></i>Start Build
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-7">
+        <!-- Recent Builds -->
+        <div class="card border-0 shadow-sm">
+          <div
+            class="card-header d-flex justify-content-between align-items-center"
+          >
+            <h5 class="mb-0">
+              <i class="fas fa-history me-2"></i>Recent Builds
+            </h5>
+            <span class="badge bg-secondary">{{ builds|length }} Build(s)</span>
+          </div>
+
+          {% if builds %}
+          <div class="list-group list-group-flush">
             {% for build in builds %}
-            <tr>
-              <td>{{ build.repo_url }}</td>
-              <td>{{ build.branch }}</td>
-              <td>
-                {% if build.status == 'completed' %}
-                <span class="badge bg-success">Completed</span>
-                {% elif build.status == 'failed' %}
-                <span class="badge bg-danger">Failed</span>
-                {% elif build.status == 'in_progress' %}
-                <span class="badge bg-warning text-dark">In Progress</span>
-                {% else %}
-                <span class="badge bg-secondary">Queued</span>
-                {% endif %}
-              </td>
-              <td>{{ build.start_time }}</td>
-              <td>{{ build.end_time if build.end_time else 'N/A' }}</td>
-              <td>
+            <div class="list-group-item list-group-item-action p-3">
+              <div
+                class="d-flex w-100 justify-content-between align-items-center mb-2"
+              >
+                <h6 class="mb-0 fw-bold">
+                  {% if build.app_name %} {{ build.app_name }} {% else %} GitHub
+                  Build {% endif %}
+                </h6>
+
+                <div>
+                  {% if build.status == 'completed' %}
+                  <span class="status-badge status-completed">
+                    <i class="fas fa-check-circle"></i> Completed
+                  </span>
+                  {% elif build.status == 'queued' %}
+                  <span class="status-badge status-queued">
+                    <i class="fas fa-clock"></i> Queued
+                  </span>
+                  {% elif build.status == 'building' or build.status ==
+                  'in_progress' %}
+                  <span class="status-badge status-building pulse-animation">
+                    <i class="fas fa-spinner fa-spin"></i> Building
+                  </span>
+                  {% else %}
+                  <span class="status-badge status-failed">
+                    <i class="fas fa-times-circle"></i> Failed
+                  </span>
+                  {% endif %}
+                </div>
+              </div>
+
+              <div class="text-muted mb-3 small">
+                <div class="d-flex flex-wrap gap-3">
+                  <div>
+                    <i class="fab fa-github me-1"></i>
+                    <span
+                      class="text-truncate"
+                      style="max-width: 200px; display: inline-block"
+                    >
+                      {{ build.repo_url }}
+                    </span>
+                  </div>
+                  <div>
+                    <i class="fas fa-code-branch me-1"></i> {{ build.branch }}
+                  </div>
+                  <div>
+                    <i class="far fa-calendar-alt me-1"></i>
+                    {{ build.start_time.split('T')[0] }}
+                  </div>
+                </div>
+              </div>
+
+              <div class="d-flex gap-2">
+                <a
+                  href="{{ url_for('build_log', build_id=build.id) }}"
+                  class="btn btn-sm btn-outline-secondary"
+                >
+                  <i class="fas fa-file-alt me-1"></i> View Log
+                </a>
+
                 {% if build.status == 'completed' %}
                 <a
                   href="{{ url_for('download_build', build_id=build.id) }}"
-                  class="btn btn-sm btn-primary"
-                  >Download</a
+                  class="btn btn-sm btn-success"
                 >
-                {% endif %} {% if build.log %}
-                <a
-                  href="{{ url_for('build_log', build_id=build.id) }}"
-                  class="btn btn-sm btn-info"
-                  >View Log</a
-                >
+                  <i class="fas fa-download me-1"></i> Download IPA
+                </a>
                 {% endif %}
-              </td>
-            </tr>
+              </div>
+            </div>
             {% endfor %}
-          </tbody>
-        </table>
+          </div>
+          {% else %}
+          <div class="card-body p-5 text-center">
+            <i class="fas fa-folder-open fa-3x mb-3 text-muted"></i>
+            <h5>No builds yet</h5>
+            <p class="text-muted">
+              Start a new build using the form on the left
+            </p>
+          </div>
+          {% endif %}
+        </div>
       </div>
     </div>
   </div>
-  {% endif %}
 </div>
 {% endblock %}

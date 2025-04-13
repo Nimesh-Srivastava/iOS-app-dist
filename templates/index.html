@@ -1,9 +1,19 @@
-{% extends 'base.html' %} {% block title %}IPA Distribution Server{% endblock %}
-{% block content %}
+{% extends 'base.html' %} {% block title %}AppCenter - iOS App Distribution{%
+endblock %} {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-  <h1>Available Apps</h1>
+  <div>
+    <h1 class="fw-bold mb-1">App Library</h1>
+    <p class="text-muted">Manage and distribute your iOS applications</p>
+  </div>
   {% if g.user and g.user.role == 'admin' %}
-  <a href="{{ url_for('upload') }}" class="btn btn-primary">Upload New App</a>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('upload') }}" class="btn btn-primary">
+      <i class="fas fa-upload me-2"></i>Upload App
+    </a>
+    <a href="{{ url_for('github_build') }}" class="btn btn-outline-secondary">
+      <i class="fab fa-github me-2"></i>GitHub Build
+    </a>
+  </div>
   {% endif %}
 </div>
 
@@ -16,7 +26,7 @@
 ></div>
 
 {% if apps %}
-<div class="row row-cols-1 row-cols-md-3 g-4">
+<div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
   {% for app in apps %}
   <div class="col">
     <div class="card app-card h-100">
@@ -26,54 +36,93 @@
           <img
             src="{{ app.icon }}"
             alt="{{ app.name }}"
-            class="img-thumbnail mb-2"
-            style="width: 80px; height: 80px"
+            class="app-icon mb-3"
           />
-          <h5 class="card-title">{{ app.name }}</h5>
+          <h5 class="card-title fw-bold">{{ app.name }}</h5>
+          {% if app.bundle_id %}
+          <p class="card-subtitle text-muted mb-2 fs-6">{{ app.bundle_id }}</p>
+          {% endif %}
         </div>
-        <p class="card-text">
-          <small class="text-muted"
-            >Last updated: {% if app.upload_date %} {{
-            app.upload_date.split('T')[0] }} {% elif app.creation_date %} {{
-            app.creation_date.split('T')[0] }} {% else %} Unknown {% endif %} </small
-          ><br />
-          <small class="text-muted"
-            >Size: {% if app.size %} {{ (app.size / 1024 / 1024) | round(2) }}
-            MB {% else %} Unknown {% endif %}
-          </small>
-        </p>
+
+        <div class="d-flex justify-content-between small text-muted mb-3">
+          <div>
+            <i class="far fa-calendar-alt me-1"></i>
+            {% if app.upload_date %} {{ app.upload_date.split('T')[0] }} {% elif
+            app.creation_date %} {{ app.creation_date.split('T')[0] }} {% else
+            %} Unknown {% endif %}
+          </div>
+          <div>
+            <i class="fas fa-file-archive me-1"></i>
+            {% if app.size %} {{ (app.size / 1024 / 1024) | round(2) }} MB {%
+            else %} Unknown {% endif %}
+          </div>
+        </div>
+
+        {% if app.source %}
+        <div class="mb-3">
+          <span class="badge bg-secondary">
+            <i class="fab fa-github me-1"></i> GitHub Build
+          </span>
+        </div>
+        {% endif %}
       </div>
-      <div
-        class="card-footer bg-transparent border-top-0 d-flex justify-content-between"
-      >
+      <div class="card-footer bg-transparent d-flex justify-content-between">
         <a
           href="{{ url_for('app_detail', app_id=app.id) }}"
           class="btn btn-sm btn-outline-primary"
-          >Details</a
         >
+          <i class="fas fa-info-circle me-1"></i>Details
+        </a>
         <a
           href="{{ url_for('install', app_id=app.id) }}"
           class="btn btn-sm btn-success"
-          >Install</a
         >
+          <i class="fas fa-download me-1"></i>Install
+        </a>
       </div>
     </div>
   </div>
   {% endfor %}
 </div>
-{% else %}
-<div class="alert alert-info">
-  <p>No apps have been uploaded yet.</p>
-  {% if g.user and g.user.role == 'admin' %}
-  <p>
-    <a href="{{ url_for('upload') }}" class="alert-link"
-      >Upload your first app</a
-    >
-    to get started.
-  </p>
-  {% endif %}
+
+<div class="mt-5 text-center">
+  <p class="text-muted">Showing {{ apps|length }} applications</p>
 </div>
-{% endif %} {% endblock %} {% block scripts %}
+{% else %} {% if g.user %}
+<div class="card border-0 shadow-sm p-4 text-center">
+  <div class="py-5">
+    <i class="fas fa-box-open fa-4x mb-3 text-muted"></i>
+    <h4>No apps available</h4>
+    <p class="text-muted mb-4">No applications have been uploaded yet.</p>
+    {% if g.user.role == 'admin' %}
+    <div class="d-flex justify-content-center gap-3">
+      <a href="{{ url_for('upload') }}" class="btn btn-primary">
+        <i class="fas fa-upload me-2"></i>Upload App
+      </a>
+      <a href="{{ url_for('github_build') }}" class="btn btn-outline-secondary">
+        <i class="fab fa-github me-2"></i>Build from GitHub
+      </a>
+    </div>
+    {% else %}
+    <p class="text-muted">
+      No apps have been shared with you yet. Contact an administrator if you
+      need access to apps.
+    </p>
+    {% endif %}
+  </div>
+</div>
+{% else %}
+<div class="card border-0 shadow-sm p-4 text-center">
+  <div class="py-5">
+    <i class="fas fa-lock fa-4x mb-3 text-muted"></i>
+    <h4>Welcome to AppCenter</h4>
+    <p class="text-muted mb-4">Please log in to view apps shared with you.</p>
+    <a href="{{ url_for('login') }}" class="btn btn-primary">
+      <i class="fas fa-sign-in-alt me-2"></i>Sign In
+    </a>
+  </div>
+</div>
+{% endif %} {% endif %} {% endblock %} {% block scripts %}
 <script>
   document.addEventListener("DOMContentLoaded", function () {
     // Get app data from data attributes

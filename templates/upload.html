@@ -1,226 +1,305 @@
-{% extends 'base.html' %} {% block title %}Upload App{% endblock %} {% block
-content %}
-<h1 class="mb-4">Upload App</h1>
-
-<div class="card mb-4">
-  <div class="card-header">
-    <ul class="nav nav-tabs card-header-tabs" role="tablist">
-      <li class="nav-item">
-        <a
-          class="nav-link active"
-          id="new-app-tab"
-          data-bs-toggle="tab"
-          href="#new-app"
-          role="tab"
-          >New App</a
-        >
-      </li>
-      <li class="nav-item">
-        <a
-          class="nav-link"
-          id="new-version-tab"
-          data-bs-toggle="tab"
-          href="#new-version"
-          role="tab"
-          >New Version</a
-        >
-      </li>
-    </ul>
-  </div>
-  <div class="card-body">
-    <div class="tab-content">
-      <div class="tab-pane fade show active" id="new-app" role="tabpanel">
-        <h5 class="card-title">Upload New App</h5>
-        <form
-          action="{{ url_for('upload') }}"
-          method="post"
-          enctype="multipart/form-data"
-        >
-          <div class="mb-3">
-            <label for="app_name" class="form-label">App Name</label>
-            <input
-              type="text"
-              class="form-control"
-              id="app_name"
-              name="app_name"
-              required
-            />
-            <div class="form-text">Enter the display name for your app</div>
-          </div>
-          <div class="mb-3">
-            <label for="app_version" class="form-label">Version</label>
-            <input
-              type="text"
-              class="form-control"
-              id="app_version"
-              name="app_version"
-              placeholder="1.0.0"
-              required
-            />
-            <div class="form-text">Version number (e.g., 1.0.0)</div>
-          </div>
-          <div class="mb-3">
-            <label for="bundle_id" class="form-label">Bundle Identifier</label>
-            <input
-              type="text"
-              class="form-control"
-              id="bundle_id"
-              name="bundle_id"
-              placeholder="com.example.myapp"
-            />
-            <div class="form-text">
-              Optional: Override the bundle identifier from the IPA
-            </div>
-          </div>
-          <div class="mb-3">
-            <label for="file" class="form-label">Select IPA File</label>
-            <input
-              type="file"
-              class="form-control"
-              id="file"
-              name="file"
-              accept=".ipa"
-              required
-            />
-            <div class="form-text">
-              Only .ipa files are accepted. Maximum size: 500MB
-            </div>
-          </div>
-          <button type="submit" class="btn btn-primary">Upload App</button>
-        </form>
+{% extends 'base.html' %} {% block title %}Upload App - AppCenter{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-10 col-lg-8">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <div>
+        <h1 class="fw-bold mb-1">Upload App</h1>
+        <p class="text-muted">
+          Add a new iOS application or update an existing one
+        </p>
       </div>
+      <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left me-2"></i>Back to Apps
+      </a>
+    </div>
 
-      <div class="tab-pane fade" id="new-version" role="tabpanel">
-        <h5 class="card-title">Upload New Version</h5>
-
-        {% if not apps %}
-        <div class="alert alert-info">
-          No existing apps found. Please upload a new app first.
-        </div>
-        {% else %}
-        <form
-          action="{{ url_for('upload') }}"
-          method="post"
-          enctype="multipart/form-data"
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header">
+        <ul
+          class="nav nav-tabs card-header-tabs"
+          id="uploadTabs"
+          role="tablist"
         >
-          <div class="mb-3">
-            <label for="app_id" class="form-label">Select App</label>
-            <select class="form-select" id="app_id" name="app_id" required>
-              {% for app in apps %}
-              <option value="{{ app.id }}">
-                {{ app.name }} (v{{ app.version }})
-              </option>
-              {% endfor %}
-            </select>
+          <li class="nav-item" role="presentation">
+            <button
+              class="nav-link active"
+              id="new-app-tab"
+              data-bs-toggle="tab"
+              data-bs-target="#new-app"
+              type="button"
+              role="tab"
+              aria-controls="new-app"
+              aria-selected="true"
+            >
+              <i class="fas fa-plus-circle me-2"></i>New App
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button
+              class="nav-link"
+              id="update-app-tab"
+              data-bs-toggle="tab"
+              data-bs-target="#update-app"
+              type="button"
+              role="tab"
+              aria-controls="update-app"
+              aria-selected="false"
+            >
+              <i class="fas fa-sync me-2"></i>Update Existing
+            </button>
+          </li>
+        </ul>
+      </div>
+      <div class="card-body p-4">
+        <div class="tab-content" id="uploadTabsContent">
+          <!-- New App Form -->
+          <div
+            class="tab-pane fade show active"
+            id="new-app"
+            role="tabpanel"
+            aria-labelledby="new-app-tab"
+          >
+            <form
+              action="{{ url_for('upload') }}"
+              method="post"
+              enctype="multipart/form-data"
+            >
+              <div class="mb-3">
+                <label for="app_name" class="form-label">App Name</label>
+                <div class="input-group">
+                  <span class="input-group-text"
+                    ><i class="fas fa-mobile-alt"></i
+                  ></span>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="app_name"
+                    name="app_name"
+                    required
+                  />
+                </div>
+                <div class="form-text">
+                  The display name of your application
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label for="bundle_id" class="form-label"
+                  >Bundle Identifier</label
+                >
+                <div class="input-group">
+                  <span class="input-group-text"
+                    ><i class="fas fa-fingerprint"></i
+                  ></span>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="bundle_id"
+                    name="bundle_id"
+                    placeholder="com.company.appname"
+                  />
+                </div>
+                <div class="form-text">
+                  Optional, will be extracted from IPA if not provided
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label for="app_version" class="form-label">App Version</label>
+                <div class="input-group">
+                  <span class="input-group-text"
+                    ><i class="fas fa-code-branch"></i
+                  ></span>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="app_version"
+                    name="app_version"
+                    placeholder="1.0.0"
+                  />
+                </div>
+                <div class="form-text">
+                  Optional, will be extracted from IPA if not provided
+                </div>
+              </div>
+
+              <div class="mb-4">
+                <label for="file" class="form-label">IPA File</label>
+                <div class="input-group">
+                  <span class="input-group-text"
+                    ><i class="fas fa-file-upload"></i
+                  ></span>
+                  <input
+                    type="file"
+                    class="form-control"
+                    id="file"
+                    name="file"
+                    required
+                    accept=".ipa"
+                  />
+                </div>
+                <div class="form-text">
+                  Select the iOS application (.ipa) file to upload
+                </div>
+              </div>
+
+              <div class="d-grid">
+                <button type="submit" class="btn btn-primary">
+                  <i class="fas fa-cloud-upload-alt me-2"></i>Upload New App
+                </button>
+              </div>
+            </form>
           </div>
-          <div class="mb-3">
-            <label for="app_version" class="form-label">New Version</label>
-            <input
-              type="text"
-              class="form-control"
-              id="version_update"
-              name="app_version"
-              placeholder="1.0.1"
-              required
-            />
-            <div class="form-text">
-              Version number for this update (e.g., 1.0.1)
+
+          <!-- Update Existing App Form -->
+          <div
+            class="tab-pane fade"
+            id="update-app"
+            role="tabpanel"
+            aria-labelledby="update-app-tab"
+          >
+            {% if apps %}
+            <form
+              action="{{ url_for('upload') }}"
+              method="post"
+              enctype="multipart/form-data"
+            >
+              <div class="mb-3">
+                <label for="app_id" class="form-label"
+                  >Select App to Update</label
+                >
+                <div class="input-group">
+                  <span class="input-group-text"
+                    ><i class="fas fa-list"></i
+                  ></span>
+                  <select
+                    class="form-select"
+                    id="app_id"
+                    name="app_id"
+                    required
+                  >
+                    <option value="" selected disabled>Choose an app...</option>
+                    {% for app in apps %}
+                    <option value="{{ app.id }}">
+                      {{ app.name }} (v{{ app.version }})
+                    </option>
+                    {% endfor %}
+                  </select>
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label for="app_version_update" class="form-label"
+                  >New Version</label
+                >
+                <div class="input-group">
+                  <span class="input-group-text"
+                    ><i class="fas fa-code-branch"></i
+                  ></span>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="app_version_update"
+                    name="app_version"
+                    placeholder="Leave blank to extract from IPA"
+                  />
+                </div>
+                <div class="form-text">
+                  Optional, will be extracted from IPA if not provided
+                </div>
+              </div>
+
+              <div class="mb-4">
+                <label for="file_update" class="form-label">IPA File</label>
+                <div class="input-group">
+                  <span class="input-group-text"
+                    ><i class="fas fa-file-upload"></i
+                  ></span>
+                  <input
+                    type="file"
+                    class="form-control"
+                    id="file_update"
+                    name="file"
+                    required
+                    accept=".ipa"
+                  />
+                </div>
+                <div class="form-text">
+                  Select the new iOS application (.ipa) file
+                </div>
+              </div>
+
+              <div class="d-grid">
+                <button type="submit" class="btn btn-success">
+                  <i class="fas fa-sync-alt me-2"></i>Update Existing App
+                </button>
+              </div>
+            </form>
+            {% else %}
+            <div class="alert alert-info">
+              <i class="fas fa-info-circle me-2"></i> No apps available to
+              update. Please upload a new app first.
             </div>
+            {% endif %}
           </div>
-          <div class="mb-3">
-            <label for="file" class="form-label">Select IPA File</label>
-            <input
-              type="file"
-              class="form-control"
-              id="update_file"
-              name="file"
-              accept=".ipa"
-              required
-            />
-            <div class="form-text">
-              Only .ipa files are accepted. Maximum size: 500MB
-            </div>
-          </div>
-          <button type="submit" class="btn btn-primary">
-            Upload New Version
-          </button>
-        </form>
-        {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+      <div class="card-header">
+        <h5 class="mb-0">
+          <i class="fas fa-info-circle me-2"></i>About IPA Files
+        </h5>
+      </div>
+      <div class="card-body p-4">
+        <p class="mb-0">
+          IPA (iOS App Store Package) files are the packaged applications used
+          by iOS devices. You can generate an IPA file from Xcode by archiving
+          your application and exporting it for development distribution.
+        </p>
+
+        <div class="alert alert-secondary mt-3 mb-0">
+          <h6 class="fw-bold"><i class="fas fa-lightbulb me-2"></i>Pro Tip</h6>
+          <p class="mb-2">
+            For automated builds, consider using the
+            <a href="{{ url_for('github_build') }}" class="fw-semibold"
+              >GitHub Build</a
+            >
+            feature instead.
+          </p>
+          <p class="mb-0 small text-muted">
+            This allows you to build directly from your source code repository
+            without manually exporting from Xcode.
+          </p>
+        </div>
       </div>
     </div>
   </div>
 </div>
-
-<div class="card">
-  <div class="card-header">Upload Instructions</div>
-  <div class="card-body">
-    <h5 class="card-title">How to Upload an App</h5>
-    <ol>
-      <li>
-        Export your app as an IPA file from Xcode or other development tools
-      </li>
-      <li>Enter the app name and version number</li>
-      <li>Select the IPA file using the form above</li>
-      <li>
-        Click "Upload App" to add a new app or "Upload New Version" to update an
-        existing app
-      </li>
-      <li>Once uploaded, the app will be available for installation</li>
-    </ol>
-    <p class="card-text">
-      For enterprise distribution, make sure your IPA is signed with an
-      Enterprise certificate or Ad Hoc provisioning profile.
-    </p>
-  </div>
-</div>
-
-<!-- JavaScript to suggest app name and version from filename -->
+{% endblock %} {% block scripts %}
 <script>
+  // Make tabs persistent using sessionStorage
   document.addEventListener("DOMContentLoaded", function () {
-    // For new app upload
-    document.getElementById("file").addEventListener("change", function (e) {
-      const fileName = e.target.files[0]?.name || "";
-      if (fileName) {
-        suggestAppInfoFromFilename(fileName, "app_name", "app_version");
-      }
-    });
+    const triggerTabList = document.querySelectorAll("#uploadTabs button");
+    const activeTab = sessionStorage.getItem("uploadActiveTab");
 
-    // For version update
-    document
-      .getElementById("update_file")
-      .addEventListener("change", function (e) {
-        const fileName = e.target.files[0]?.name || "";
-        if (fileName) {
-          suggestAppInfoFromFilename(fileName, null, "version_update");
-        }
-      });
-
-    function suggestAppInfoFromFilename(fileName, nameField, versionField) {
-      // Remove .ipa extension
-      let baseName = fileName.replace(/\.ipa$/i, "");
-
-      // Try to match version pattern (e.g., 1.0.0, v2.3.4, etc.)
-      const versionRegex = /[vV]?(\d+\.\d+(\.\d+)?)/;
-      const versionMatch = baseName.match(versionRegex);
-
-      if (versionMatch && versionField) {
-        document.getElementById(versionField).value = versionMatch[1];
-
-        // Remove version from basename for app name
-        baseName = baseName.replace(versionRegex, "").trim();
-        // Remove common separators
-        baseName = baseName.replace(/[-_\.]+/g, " ").trim();
-      }
-
-      // Set app name if field exists and not already filled
-      if (nameField && document.getElementById(nameField).value === "") {
-        // Convert to title case
-        const appName = baseName.replace(/\w\S*/g, function (txt) {
-          return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
-        });
-        document.getElementById(nameField).value = appName;
+    // Set active tab from storage if available
+    if (activeTab) {
+      const tabToActivate = document.querySelector(activeTab);
+      if (tabToActivate) {
+        const tab = new bootstrap.Tab(tabToActivate);
+        tab.show();
       }
     }
+
+    // Store active tab when changed
+    triggerTabList.forEach(function (triggerEl) {
+      triggerEl.addEventListener("shown.bs.tab", function (event) {
+        sessionStorage.setItem("uploadActiveTab", "#" + event.target.id);
+      });
+    });
   });
 </script>
 {% endblock %}

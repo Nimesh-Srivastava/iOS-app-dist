@@ -1,46 +1,119 @@
-{% extends 'base.html' %} {% block title %}Build Log{% endblock %} {% block
-content %}
-<div class="container mt-4">
-  <h2>Build Log for {{ build.app_name }}</h2>
+{% extends 'base.html' %} {% block title %}Build Log - AppCenter{% endblock %}
+{% block content %}
+<div class="container">
+  <!-- Back button and build information -->
+  <div class="d-flex align-items-center mb-4">
+    <a
+      href="{{ url_for('github_build') }}"
+      class="btn btn-sm btn-outline-secondary me-3"
+    >
+      <i class="fas fa-arrow-left me-1"></i> Back to Builds
+    </a>
+    <h1 class="fw-bold mb-0">Build Log</h1>
 
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <div>
-      <span
-        class="badge {% if build.status == 'completed' %}bg-success{% elif build.status == 'failed' %}bg-danger{% elif build.status == 'in_progress' %}bg-warning{% else %}bg-secondary{% endif %}"
-      >
-        {{ build.status | title }}
-      </span>
-      <small class="text-muted ms-2">
-        Started: {{ build.start_time }} {% if build.end_time %} | Completed: {{
-        build.end_time }} {% endif %}
-      </small>
-    </div>
-    <div>
-      <a href="{{ url_for('github_build') }}" class="btn btn-sm btn-secondary"
-        >Back to Builds</a
-      >
+    <div class="ms-auto">
       {% if build.status == 'completed' %}
       <a
         href="{{ url_for('download_build', build_id=build.id) }}"
-        class="btn btn-sm btn-primary"
-        >Download IPA</a
+        class="btn btn-success"
       >
+        <i class="fas fa-download me-2"></i>Download IPA
+      </a>
       {% endif %}
     </div>
   </div>
 
-  <div class="card">
+  <div class="card border-0 shadow-sm mb-4">
     <div class="card-header">
-      <strong>Repository:</strong> {{ build.repo_url }} ({{ build.branch }})
+      <div class="d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+          <i class="fab fa-github me-2"></i>
+          {% if build.app_name %}{{ build.app_name }}{% else %}GitHub Build{%
+          endif %}
+        </h5>
+
+        <div>
+          {% if build.status == 'completed' %}
+          <span class="status-badge status-completed">
+            <i class="fas fa-check-circle"></i> Completed
+          </span>
+          {% elif build.status == 'queued' %}
+          <span class="status-badge status-queued">
+            <i class="fas fa-clock"></i> Queued
+          </span>
+          {% elif build.status == 'building' or build.status == 'in_progress' %}
+          <span class="status-badge status-building pulse-animation">
+            <i class="fas fa-spinner fa-spin"></i> Building
+          </span>
+          {% else %}
+          <span class="status-badge status-failed">
+            <i class="fas fa-times-circle"></i> Failed
+          </span>
+          {% endif %}
+        </div>
+      </div>
     </div>
-    <div class="card-body">
+
+    <div class="card-body p-0">
+      <div class="p-3 bg-dark border-bottom">
+        <div class="row g-2 text-muted small">
+          <div class="col-md-3">
+            <div><strong>Repository:</strong></div>
+            <div class="text-truncate">{{ build.repo_url }}</div>
+          </div>
+          <div class="col-md-2">
+            <div><strong>Branch:</strong></div>
+            <div>{{ build.branch }}</div>
+          </div>
+          <div class="col-md-2">
+            <div><strong>Started:</strong></div>
+            <div>{{ build.start_time.split('T')[0] }}</div>
+          </div>
+          <div class="col-md-2">
+            <div><strong>Ended:</strong></div>
+            <div>
+              {% if build.end_time %}{{ build.end_time.split('T')[0] }}{% else
+              %}In Progress{% endif %}
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div><strong>Configuration:</strong></div>
+            <div>
+              {{ build.build_config }} - Xcode {{
+              build.xcode_version|default('Latest', true) }}
+            </div>
+          </div>
+        </div>
+      </div>
+
       <pre
-        class="build-log p-3 rounded"
-        style="max-height: 500px; overflow-y: auto"
+        class="build-log mb-0 px-4 py-3"
+        style="max-height: 600px; overflow-y: auto"
       >
 {{ build.log }}</pre
       >
     </div>
+
+    {% if build.status == 'building' or build.status == 'in_progress' or
+    build.status == 'queued' %}
+    <div class="card-footer bg-dark text-center py-3">
+      <div
+        class="spinner-border spinner-border-sm text-primary me-2"
+        role="status"
+      >
+        <span class="visually-hidden">Loading...</span>
+      </div>
+      <span>Build in progress - this page will refresh automatically</span>
+    </div>
+    {% endif %}
   </div>
 </div>
-{% endblock %}
+{% endblock %} {% block scripts %} {% if build.status == 'building' or
+build.status == 'in_progress' or build.status == 'queued' %}
+<script>
+  // Auto-refresh the page every 5 seconds if the build is in progress
+  setTimeout(function () {
+    window.location.reload();
+  }, 5000);
+</script>
+{% endif %} {% endblock %}
