@@ -853,7 +853,12 @@ def delete_user(username):
 
 @app.route('/')
 def index():
-    apps = db.get_apps()
+    # Get apps based on user access level
+    if 'username' in session:
+        apps = db.get_apps_for_user(session['username'])
+    else:
+        # Non-logged in users don't see any apps
+        apps = []
     
     # Get latest timestamp for auto-refresh feature
     latest_timestamp = None
@@ -1100,9 +1105,20 @@ def build_log(build_id):
 
 @app.route('/app/<app_id>')
 def app_detail(app_id):
+    # Check if user has access to this app
+    if 'username' not in session or not db.get_user_app_access(session['username'], app_id):
+        flash("You don't have access to this app or it doesn't exist")
+        return redirect(url_for('index'))
+    
     app = db.get_app(app_id)
     if app:
-        return render_template('app_detail.html', app=app)
+        # Get the users this app is shared with (for admins)
+        shared_users = []
+        if g.user and g.user.get('role') == 'admin':
+            shared_users = db.get_shared_users(app_id)
+        
+        return render_template('app_detail.html', app=app, shared_users=shared_users)
+    
     flash("App not found")
     return redirect(url_for('index'))
 
@@ -1151,6 +1167,11 @@ def edit_app(app_id):
 
 @app.route('/download/<app_id>/<filename>')
 def download_app(app_id, filename):
+    # Check if user has access to this app
+    if 'username' not in session or not db.get_user_app_access(session['username'], app_id):
+        flash("You don't have access to this app or it doesn't exist")
+        return redirect(url_for('index'))
+    
     app = db.get_app(app_id)
     if not app:
         flash("App not found")
@@ -1178,6 +1199,11 @@ def download_app(app_id, filename):
 
 @app.route('/install/<app_id>')
 def install(app_id):
+    # Check if user has access to this app
+    if 'username' not in session or not db.get_user_app_access(session['username'], app_id):
+        flash("You don't have access to this app or it doesn't exist")
+        return redirect(url_for('index'))
+    
     app = db.get_app(app_id)
     if app:
         # For iOS apps, we'll use itms-services protocol to initiate installation
@@ -1325,7 +1351,10 @@ def api_build(build_id):
 def api_app_status():
     """API endpoint to check if there are new apps or updates
     Used for auto-refreshing the home page"""
-    apps = db.get_apps()
+    if 'username' not in session:
+        return jsonify({"count": 0, "latest_timestamp": None})
+        
+    apps = db.get_apps_for_user(session['username'])
     
     # Get count and latest timestamp
     count = len(apps)
@@ -1340,6 +1369,74 @@ def api_app_status():
         "count": count,
         "latest_timestamp": latest_timestamp
     })
+
+# App sharing routes
+@app.route('/manage_sharing/<app_id>', methods=['GET', 'POST'])
+@admin_required
+def manage_sharing(app_id):
+    """Manage which users have access to an app"""
+    app = db.get_app(app_id)
+    if not app:
+        flash("App not found")
+        return redirect(url_for('index'))
+        
+    if request.method == 'POST':
+        # Handle share/unshare actions
+        action = request.form.get('action')
+        username = request.form.get('username')
+        
+        if action == 'share' and username:
+            success, message = db.share_app(app_id, username)
+            if success:
+                flash(message)
+            else:
+                flash(f"Error sharing app: {message}")
+                
+        elif action == 'unshare' and username:
+            if db.unshare_app(app_id, username):
+                flash(f"App access removed for user {username}")
+            else:
+                flash(f"Error removing access for user {username}")
+        
+        return redirect(url_for('manage_sharing', app_id=app_id))
+        
+    # Get users for display
+    users = db.get_users()
+    # Filter out admin users (no need to share with them)
+    users = [user for user in users if user.get('role') != 'admin']
+    
+    # Get current shares
+    shared_users = db.get_shared_users(app_id)
+    
+    return render_template('manage_sharing.html', 
+                          app=app, 
+                          users=users, 
+                          shared_users=shared_users)
+
+@app.route('/share_app/<app_id>', methods=['POST'])
+@admin_required
+def share_app(app_id):
+    """Quick share action from app detail page"""
+    username = request.form.get('username')
+    if not username:
+        flash("Username is required")
+        return redirect(url_for('app_detail', app_id=app_id))
+        
+    success, message = db.share_app(app_id, username)
+    flash(message)
+    
+    return redirect(url_for('app_detail', app_id=app_id))
+
+@app.route('/unshare_app/<app_id>/<username>', methods=['POST'])
+@admin_required
+def unshare_app(app_id, username):
+    """Quick unshare action from app detail page"""
+    if db.unshare_app(app_id, username):
+        flash(f"App access removed for user {username}")
+    else:
+        flash(f"Error removing access for user {username}")
+        
+    return redirect(url_for('app_detail', app_id=app_id))
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000, ssl_context=('cert.pem', 'key.pem'))

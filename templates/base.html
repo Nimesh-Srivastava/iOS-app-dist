@@ -145,6 +145,16 @@
                 >Manage Users</a
               >
             </li>
+            <li class="nav-item">
+              <a
+                class="nav-link text-info"
+                href="#"
+                data-bs-toggle="modal"
+                data-bs-target="#appSharingInfoModal"
+              >
+                <i class="fas fa-share-alt"></i> App Sharing Enabled
+              </a>
+            </li>
             {% endif %}
           </ul>
           <ul class="navbar-nav">
@@ -202,6 +212,102 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    {% block scripts %}{% endblock %}
+    {% block scripts %}{% endblock %} {% if g.user and g.user.role == 'admin' %}
+    <!-- App Sharing Info Modal -->
+    <div
+      class="modal fade"
+      id="appSharingInfoModal"
+      tabindex="-1"
+      aria-labelledby="appSharingModalLabel"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header bg-info text-white">
+            <h5 class="modal-title" id="appSharingModalLabel">
+              <i class="fas fa-share-alt"></i> App Sharing Feature
+            </h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <h6>How App Sharing Works</h6>
+            <p>
+              As an admin, you have access to all apps in the system. Regular
+              users can only see apps that have been shared with them.
+            </p>
+
+            <div class="row">
+              <div class="col-md-6">
+                <div class="card mb-3">
+                  <div class="card-header bg-primary text-white">
+                    Admin View
+                  </div>
+                  <div class="card-body">
+                    <ul>
+                      <li>See all apps in the system</li>
+                      <li>Upload and manage all apps</li>
+                      <li>Control which users can access each app</li>
+                      <li>Share apps with specific users</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="card mb-3">
+                  <div class="card-header bg-secondary text-white">
+                    User View
+                  </div>
+                  <div class="card-body">
+                    <ul>
+                      <li>See only apps shared with them</li>
+                      <li>Download and install shared apps</li>
+                      <li>Cannot see apps not shared with them</li>
+                      <li>Cannot share apps with others</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <h6>How to Share Apps</h6>
+            <p>You can share apps with users in two ways:</p>
+            <ol>
+              <li>
+                From an app's detail page, use the quick sharing form in the
+                sidebar
+              </li>
+              <li>
+                Click the "Manage Sharing" button to see advanced sharing
+                options
+              </li>
+            </ol>
+
+            <div class="alert alert-info">
+              <i class="fas fa-info-circle"></i> <strong>Tip:</strong>
+              Create regular user accounts for your team members or clients to
+              control their access to specific apps.
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-bs-dismiss="modal"
+            >
+              Close
+            </button>
+            <a href="{{ url_for('manage_users') }}" class="btn btn-primary"
+              >Manage Users</a
+            >
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
   </body>
 </html>

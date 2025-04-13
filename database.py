@@ -18,6 +18,7 @@ db = client[DB_NAME]
 users_collection = db['users']
 apps_collection = db['apps']
 builds_collection = db['builds']
+app_shares_collection = db['app_shares']  # New collection for tracking app sharing
 
 def initialize_db():
     """Initialize database with default data if empty"""
@@ -25,6 +26,7 @@ def initialize_db():
     users_collection.create_index('username', unique=True)
     apps_collection.create_index('id', unique=True)
     builds_collection.create_index('id', unique=True)
+    app_shares_collection.create_index([('app_id', 1), ('username', 1)], unique=True)  # Composite index
     
     # Create default admin user if no users exist
     if users_collection.count_documents({}) == 0:
@@ -57,11 +59,38 @@ def save_user(user_data):
 def delete_user(username):
     """Delete a user"""
     users_collection.delete_one({'username': username})
+    # Remove any app shares for this user
+    app_shares_collection.delete_many({'username': username})
 
 # App operations
 def get_apps():
     """Get all apps"""
     return list(apps_collection.find({}, {'_id': 0}))
+
+def get_apps_for_user(username):
+    """
+    Get apps that a specific user has access to
+    - Admins get all apps
+    - Regular users get only shared apps
+    """
+    user = get_user(username)
+    if not user:
+        return []
+        
+    # Admins see all apps
+    if user.get('role') == 'admin':
+        return get_apps()
+        
+    # For regular users, get apps shared with them
+    shared_app_ids = [
+        share['app_id'] 
+        for share in app_shares_collection.find({'username': username}, {'_id': 0, 'app_id': 1})
+    ]
+    
+    if not shared_app_ids:
+        return []
+        
+    return list(apps_collection.find({'id': {'$in': shared_app_ids}}, {'_id': 0}))
 
 def get_app(app_id):
     """Get an app by ID"""
@@ -79,11 +108,76 @@ def save_app(app_data):
 def delete_app(app_id):
     """Delete an app"""
     apps_collection.delete_one({'id': app_id})
+    # Remove any shares for this app
+    app_shares_collection.delete_many({'app_id': app_id})
 
 def save_apps(apps):
     """Save multiple apps (used for batch operations)"""
     for app in apps:
         save_app(app)
+
+# App sharing operations
+def share_app(app_id, username):
+    """Share an app with a specific user"""
+    # Check if app exists
+    app = get_app(app_id)
+    if not app:
+        return False, "App not found"
+        
+    # Check if user exists
+    user = get_user(username)
+    if not user:
+        return False, "User not found"
+        
+    # Don't share with admins (they already have access)
+    if user.get('role') == 'admin':
+        return False, "No need to share with admin users"
+    
+    # Create or update share record
+    app_shares_collection.update_one(
+        {'app_id': app_id, 'username': username},
+        {'$set': {
+            'app_id': app_id,
+            'username': username,
+            'app_name': app.get('name', 'Unknown App')
+        }},
+        upsert=True
+    )
+    
+    return True, f"App {app.get('name', app_id)} shared with {username}"
+
+def unshare_app(app_id, username):
+    """Remove app sharing for a specific user"""
+    result = app_shares_collection.delete_one({'app_id': app_id, 'username': username})
+    return result.deleted_count > 0
+
+def get_app_shares(app_id=None):
+    """
+    Get app sharing information
+    If app_id is provided, return shares for that app only
+    Otherwise, return all shares
+    """
+    query = {'app_id': app_id} if app_id else {}
+    return list(app_shares_collection.find(query, {'_id': 0}))
+
+def get_shared_users(app_id):
+    """Get list of usernames that an app is shared with"""
+    shares = app_shares_collection.find({'app_id': app_id}, {'_id': 0, 'username': 1})
+    return [share['username'] for share in shares]
+
+def get_user_app_access(username, app_id):
+    """Check if a user has access to a specific app"""
+    user = get_user(username)
+    if not user:
+        return False
+        
+    # Admins have access to all apps
+    if user.get('role') == 'admin':
+        return True
+        
+    # Check if app is shared with the user
+    share = app_shares_collection.find_one({'app_id': app_id, 'username': username})
+    return share is not None
 
 # Build operations
 def get_builds():
