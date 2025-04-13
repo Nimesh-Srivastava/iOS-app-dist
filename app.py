@@ -197,7 +197,7 @@ def extract_app_info(filepath):
                 version = plist_data.get('CFBundleShortVersionString', '1.0.0')
                 bundle_id = plist_data.get('CFBundleIdentifier', '')
         else:
-            app_name = filename.split('.')[0]
+    app_name = filename.split('.')[0]
             version = '1.0.0'
             bundle_id = ''
             
@@ -238,8 +238,8 @@ def add_app_version(app_id, filepath, version=None):
     """Add a new version to an existing app"""
     app = db.get_app(app_id)
     if not app:
-        return None
-        
+    return None
+
     filename = os.path.basename(filepath)
     
     # If version is not provided, extract it from the IPA
@@ -262,23 +262,23 @@ def add_app_version(app_id, filepath, version=None):
             logging.error(f"Error extracting version from IPA: {str(e)}")
             version = "1.0.0"
     
-    # Update app with new version
-    app['version'] = version
-    app['filename'] = filename
-    app['size'] = os.path.getsize(filepath)
-    
-    # Add to versions history
-    app['versions'].append({
-        "version": version,
-        "filename": filename,
-        "upload_date": datetime.now().isoformat(),
-        "size": os.path.getsize(filepath)
-    })
-    
+            # Update app with new version
+            app['version'] = version
+            app['filename'] = filename
+            app['size'] = os.path.getsize(filepath)
+            
+            # Add to versions history
+            app['versions'].append({
+                "version": version,
+                "filename": filename,
+                "upload_date": datetime.now().isoformat(),
+                "size": os.path.getsize(filepath)
+            })
+            
     # Save updated app to database
     db.save_app(app)
-    return app
-
+            return app
+    
 # Build from GitHub repo function
 def build_ios_app_from_github(build_id, repo_url, branch, app_name, build_config='Release', 
                             certificate_path=None, provisioning_profile=None):
@@ -921,7 +921,7 @@ def upload():
                             with ipa.open(plist_path) as plist_file:
                                 plist_data = plistlib.load(plist_file)
                                 app_version = plist_data.get('CFBundleShortVersionString', '1.0.0')
-                        else:
+                else:
                             app_version = "1.0.0"
                 except Exception as e:
                     logging.error(f"Error extracting version from IPA: {str(e)}")
@@ -1143,30 +1143,30 @@ def edit_app(app_id):
         # Update app data
         app['name'] = app_name
         app['version'] = version
-        
-        # Handle icon upload if provided
-        if 'icon' in request.files and request.files['icon'].filename:
-            icon_file = request.files['icon']
-            try:
-                # Process and resize the icon
-                img = Image.open(icon_file)
-                img = img.resize((128, 128))  # Resize to standard size
                 
-                # Convert to base64 for storage
-                buffered = io.BytesIO()
-                img.save(buffered, format="PNG")
-                img_str = base64.b64encode(buffered.getvalue()).decode()
+                # Handle icon upload if provided
+                if 'icon' in request.files and request.files['icon'].filename:
+                    icon_file = request.files['icon']
+                    try:
+                        # Process and resize the icon
+                        img = Image.open(icon_file)
+                        img = img.resize((128, 128))  # Resize to standard size
+                        
+                        # Convert to base64 for storage
+                        buffered = io.BytesIO()
+                        img.save(buffered, format="PNG")
+                        img_str = base64.b64encode(buffered.getvalue()).decode()
                 app['icon'] = f"data:image/png;base64,{img_str}"
-            except Exception as e:
-                flash(f"Error processing icon: {str(e)}")
-        
-        # Update the latest version in versions list too
+                    except Exception as e:
+                        flash(f"Error processing icon: {str(e)}")
+                
+                # Update the latest version in versions list too
         if app['versions']:
             app['versions'][-1]['version'] = version
-        
+                
         db.save_app(app)
-        flash(f"App '{app_name}' updated successfully")
-        return redirect(url_for('app_detail', app_id=app_id))
+                flash(f"App '{app_name}' updated successfully")
+                return redirect(url_for('app_detail', app_id=app_id))
     
     return render_template('edit_app.html', app=app)
 
@@ -1200,7 +1200,7 @@ def download_app(app_id, filename):
             return redirect(url_for('app_detail', app_id=app_id))
     else:
         # For traditional uploads, serve from the upload folder
-        return send_from_directory(UPLOAD_FOLDER, filename, as_attachment=True)
+    return send_from_directory(UPLOAD_FOLDER, filename, as_attachment=True)
 
 @app.route('/install/<app_id>')
 def install(app_id):
@@ -1301,9 +1301,9 @@ def delete_app(app_id):
                 for version in app['versions']:
                     try:
                         if 'filename' in version:
-                            filepath = os.path.join(UPLOAD_FOLDER, version['filename'])
+                filepath = os.path.join(UPLOAD_FOLDER, version['filename'])
                             if os.path.exists(filepath):
-                                os.remove(filepath)
+                os.remove(filepath)
                                 logging.info(f"Deleted file: {filepath}")
                     except Exception as e:
                         logging.error(f"Error deleting file for version {version.get('version', 'unknown')}: {str(e)}")
