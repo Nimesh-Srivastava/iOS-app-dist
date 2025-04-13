@@ -802,7 +802,12 @@ def login():
 def logout():
     session.clear()
     flash('You have been logged out')
-    return redirect(url_for('index'))
+    response = redirect(url_for('index'))
+    # Add cache control headers to prevent back button from showing protected pages
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 @app.route('/register', methods=['GET', 'POST'])
 @admin_required
