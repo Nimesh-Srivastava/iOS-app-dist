@@ -197,7 +197,7 @@ def extract_app_info(filepath):
                 version = plist_data.get('CFBundleShortVersionString', '1.0.0')
                 bundle_id = plist_data.get('CFBundleIdentifier', '')
         else:
-    app_name = filename.split('.')[0]
+            app_name = filename.split('.')[0]
             version = '1.0.0'
             bundle_id = ''
             
@@ -238,7 +238,7 @@ def add_app_version(app_id, filepath, version=None):
     """Add a new version to an existing app"""
     app = db.get_app(app_id)
     if not app:
-    return None
+        return None
 
     filename = os.path.basename(filepath)
     
@@ -262,23 +262,23 @@ def add_app_version(app_id, filepath, version=None):
             logging.error(f"Error extracting version from IPA: {str(e)}")
             version = "1.0.0"
     
-            # Update app with new version
-            app['version'] = version
-            app['filename'] = filename
-            app['size'] = os.path.getsize(filepath)
-            
-            # Add to versions history
-            app['versions'].append({
-                "version": version,
-                "filename": filename,
-                "upload_date": datetime.now().isoformat(),
-                "size": os.path.getsize(filepath)
-            })
-            
+    # Update app with new version
+    app['version'] = version
+    app['filename'] = filename
+    app['size'] = os.path.getsize(filepath)
+    
+    # Add to versions history
+    app['versions'].append({
+        "version": version,
+        "filename": filename,
+        "upload_date": datetime.now().isoformat(),
+        "size": os.path.getsize(filepath)
+    })
+    
     # Save updated app to database
     db.save_app(app)
-            return app
-    
+    return app
+
 # Build from GitHub repo function
 def build_ios_app_from_github(build_id, repo_url, branch, app_name, build_config='Release', 
                             certificate_path=None, provisioning_profile=None):
@@ -553,34 +553,34 @@ def build_ios_app_from_github(build_id, repo_url, branch, app_name, build_config
                     'archive'
                 ]
                 
-            # Add team ID if available
-            team_id = db.get_build(build_id).get('team_id')
-            if team_id:
-                build_cmd.extend(['-teamID', team_id])
+                # Add team ID if available
+                team_id = db.get_build(build_id).get('team_id')
+                if team_id:
+                    build_cmd.extend(['-teamID', team_id])
                 
-            # Log the build command
-            db.update_build_status(build_id, 'building', 
-                                  f"Running build command: {' '.join(build_cmd)}\n")
-            
-            # Run the build
-            try:
-                build_result = subprocess.run(build_cmd, 
-                                           cwd=os.path.dirname(build_file),
-                                           capture_output=True, text=True)
-                
-                # Log the output
+                # Log the build command
                 db.update_build_status(build_id, 'building', 
-                                     f"Build output:\n{build_result.stdout}\n")
+                                      f"Running build command: {' '.join(build_cmd)}\n")
                 
-                if build_result.returncode != 0:
+                # Run the build
+                try:
+                    build_result = subprocess.run(build_cmd, 
+                                               cwd=os.path.dirname(build_file),
+                                               capture_output=True, text=True)
+                    
+                    # Log the output
                     db.update_build_status(build_id, 'building', 
-                                         f"Build error:\n{build_result.stderr}\n")
-                    raise Exception(f"xcodebuild archive failed with code {build_result.returncode}")
-                
-                # Create export options plist
-                export_plist_path = os.path.join(build_dir, "ExportOptions.plist")
-                with open(export_plist_path, 'w') as f:
-                    f.write(f"""<?xml version="1.0" encoding="UTF-8"?>
+                                         f"Build output:\n{build_result.stdout}\n")
+                    
+                    if build_result.returncode != 0:
+                        db.update_build_status(build_id, 'building', 
+                                             f"Build error:\n{build_result.stderr}\n")
+                        raise Exception(f"xcodebuild archive failed with code {build_result.returncode}")
+                    
+                    # Create export options plist
+                    export_plist_path = os.path.join(build_dir, "ExportOptions.plist")
+                    with open(export_plist_path, 'w') as f:
+                        f.write(f"""<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
@@ -592,47 +592,47 @@ def build_ios_app_from_github(build_id, repo_url, branch, app_name, build_config
     <string>{team_id or "YOUR_TEAM_ID"}</string>
 </dict>
 </plist>""")
-                
-                # Export the IPA
-                export_cmd = [
-                    'xcodebuild', '-exportArchive',
-                    '-archivePath', archive_path,
-                    '-exportPath', ipa_dir,
-                    '-exportOptionsPlist', export_plist_path
-                ]
-                
-                db.update_build_status(build_id, 'building', 
-                                     f"Exporting IPA with command: {' '.join(export_cmd)}\n")
-                
-                export_result = subprocess.run(export_cmd,
-                                            capture_output=True, text=True)
-                
-                # Log the output
-                db.update_build_status(build_id, 'building', 
-                                     f"Export output:\n{export_result.stdout}\n")
-                
-                if export_result.returncode != 0:
+                    
+                    # Export the IPA
+                    export_cmd = [
+                        'xcodebuild', '-exportArchive',
+                        '-archivePath', archive_path,
+                        '-exportPath', ipa_dir,
+                        '-exportOptionsPlist', export_plist_path
+                    ]
+                    
                     db.update_build_status(build_id, 'building', 
-                                         f"Export error:\n{export_result.stderr}\n")
-                    raise Exception(f"xcodebuild export failed with code {export_result.returncode}")
-                
-                # Find the IPA file
-                ipa_files = []
-                for file in os.listdir(ipa_dir):
-                    if file.endswith('.ipa'):
-                        ipa_files.append(os.path.join(ipa_dir, file))
-                
-                if not ipa_files:
-                    raise Exception(f"No IPA file found in {ipa_dir}")
-                
-                ipa_path = ipa_files[0]
-                db.update_build_status(build_id, 'building', f"IPA file created at: {ipa_path}\n")
-                
-            except Exception as e:
-                error_msg = f"Error building IPA: {str(e)}\n{traceback.format_exc()}"
-                logging.error(error_msg)
-                db.update_build_status(build_id, 'failed', error_msg)
-                return
+                                         f"Exporting IPA with command: {' '.join(export_cmd)}\n")
+                    
+                    export_result = subprocess.run(export_cmd,
+                                                capture_output=True, text=True)
+                    
+                    # Log the output
+                    db.update_build_status(build_id, 'building', 
+                                         f"Export output:\n{export_result.stdout}\n")
+                    
+                    if export_result.returncode != 0:
+                        db.update_build_status(build_id, 'building', 
+                                             f"Export error:\n{export_result.stderr}\n")
+                        raise Exception(f"xcodebuild export failed with code {export_result.returncode}")
+                    
+                    # Find the IPA file
+                    ipa_files = []
+                    for file in os.listdir(ipa_dir):
+                        if file.endswith('.ipa'):
+                            ipa_files.append(os.path.join(ipa_dir, file))
+                    
+                    if not ipa_files:
+                        raise Exception(f"No IPA file found in {ipa_dir}")
+                    
+                    ipa_path = ipa_files[0]
+                    db.update_build_status(build_id, 'building', f"IPA file created at: {ipa_path}\n")
+                    
+                except Exception as e:
+                    error_msg = f"Error building IPA: {str(e)}\n{traceback.format_exc()}"
+                    logging.error(error_msg)
+                    db.update_build_status(build_id, 'failed', error_msg)
+                    return
                 
         else:
             # Not on macOS or xcodebuild not available - create a placeholder IPA
@@ -659,37 +659,37 @@ def build_ios_app_from_github(build_id, repo_url, branch, app_name, build_config
                     'archive'
                 ]
                 
-            # Add team ID if available
-            team_id = db.get_build(build_id).get('team_id')
-            if team_id:
-                build_cmd.extend(['-teamID', team_id])
+                # Add team ID if available
+                team_id = db.get_build(build_id).get('team_id')
+                if team_id:
+                    build_cmd.extend(['-teamID', team_id])
                 
-            # Log the command that would have been run (for documentation)
-            logging.info(f"Simulating build command: {' '.join(build_cmd)}")
-            db.update_build_status(build_id, 'building', f"Build command that would run on macOS: {' '.join(build_cmd)}\n")
-            
-            # Create a mock archive directory
-            mock_archive_dir = os.path.join(build_dir, "MockArchive")
-            os.makedirs(mock_archive_dir, exist_ok=True)
-            
-            db.update_build_status(build_id, 'building', "Creating placeholder IPA file...\n")
-            
-            # Create a simple placeholder IPA (zip file)
-            try:
-                with zipfile.ZipFile(ipa_path, 'w') as placeholder_ipa:
-                    # Add metadata file
-                    placeholder_info = os.path.join(build_dir, "info.txt")
-                    with open(placeholder_info, 'w') as f:
-                        f.write(f"Placeholder IPA for {app_name or scheme_name} built from {repo_url} (branch: {branch})\n\n")
-                        f.write("NOTE: This is a simulated build because the build was not run on macOS or xcodebuild was not available.\n")
-                        f.write("For real builds, please run on macOS with Xcode installed.\n")
+                # Log the command that would have been run (for documentation)
+                logging.info(f"Simulating build command: {' '.join(build_cmd)}")
+                db.update_build_status(build_id, 'building', f"Build command that would run on macOS: {' '.join(build_cmd)}\n")
+                
+                # Create a mock archive directory
+                mock_archive_dir = os.path.join(build_dir, "MockArchive")
+                os.makedirs(mock_archive_dir, exist_ok=True)
+                
+                db.update_build_status(build_id, 'building', "Creating placeholder IPA file...\n")
+                
+                # Create a simple placeholder IPA (zip file)
+                try:
+                    with zipfile.ZipFile(ipa_path, 'w') as placeholder_ipa:
+                        # Add metadata file
+                        placeholder_info = os.path.join(build_dir, "info.txt")
+                        with open(placeholder_info, 'w') as f:
+                            f.write(f"Placeholder IPA for {app_name or scheme_name} built from {repo_url} (branch: {branch})\n\n")
+                            f.write("NOTE: This is a simulated build because the build was not run on macOS or xcodebuild was not available.\n")
+                            f.write("For real builds, please run on macOS with Xcode installed.\n")
+                            
+                        placeholder_ipa.write(placeholder_info, "info.txt")
                         
-                    placeholder_ipa.write(placeholder_info, "info.txt")
-                    
-                    # Create a skeletal Info.plist
-                    info_plist_path = os.path.join(build_dir, "Info.plist")
-                    with open(info_plist_path, 'w') as f:
-                        f.write(f"""<?xml version="1.0" encoding="UTF-8"?>
+                        # Create a skeletal Info.plist
+                        info_plist_path = os.path.join(build_dir, "Info.plist")
+                        with open(info_plist_path, 'w') as f:
+                            f.write(f"""<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
@@ -703,26 +703,26 @@ def build_ios_app_from_github(build_id, repo_url, branch, app_name, build_config
     <string>1</string>
 </dict>
 </plist>""")
-                    placeholder_ipa.write(info_plist_path, "Info.plist")
+                        placeholder_ipa.write(info_plist_path, "Info.plist")
+                        
+                        # Add some code files from the repo to make it more realistic
+                        file_count = 0
+                        for root, _, files in os.walk(build_dir):
+                            for file in files:
+                                if file.endswith(('.swift', '.h', '.m', '.c', '.cpp')) and file_count < 5:
+                                    filepath = os.path.join(root, file)
+                                    arcname = os.path.relpath(filepath, build_dir)
+                                    placeholder_ipa.write(filepath, arcname)
+                                    file_count += 1
                     
-                    # Add some code files from the repo to make it more realistic
-                    file_count = 0
-                    for root, _, files in os.walk(build_dir):
-                        for file in files:
-                            if file.endswith(('.swift', '.h', '.m', '.c', '.cpp')) and file_count < 5:
-                                filepath = os.path.join(root, file)
-                                arcname = os.path.relpath(filepath, build_dir)
-                                placeholder_ipa.write(filepath, arcname)
-                                file_count += 1
-                    
-                logging.info(f"Created placeholder IPA at: {ipa_path}")
-                db.update_build_status(build_id, 'building', f"Created placeholder IPA: {ipa_path}\n")
-            except Exception as e:
-                error_msg = f"Error creating placeholder IPA: {str(e)}\n{traceback.format_exc()}"
-                logging.error(error_msg)
-                db.update_build_status(build_id, 'failed', error_msg)
-                return
-        
+                    logging.info(f"Created placeholder IPA at: {ipa_path}")
+                    db.update_build_status(build_id, 'building', f"Created placeholder IPA: {ipa_path}\n")
+                except Exception as e:
+                    error_msg = f"Error creating placeholder IPA: {str(e)}\n{traceback.format_exc()}"
+                    logging.error(error_msg)
+                    db.update_build_status(build_id, 'failed', error_msg)
+                    return
+            
         # Read the IPA file
         try:
             with open(ipa_path, 'rb') as f:
@@ -921,7 +921,7 @@ def upload():
                             with ipa.open(plist_path) as plist_file:
                                 plist_data = plistlib.load(plist_file)
                                 app_version = plist_data.get('CFBundleShortVersionString', '1.0.0')
-                else:
+                        else:
                             app_version = "1.0.0"
                 except Exception as e:
                     logging.error(f"Error extracting version from IPA: {str(e)}")
@@ -1144,29 +1144,29 @@ def edit_app(app_id):
         app['name'] = app_name
         app['version'] = version
                 
-                # Handle icon upload if provided
-                if 'icon' in request.files and request.files['icon'].filename:
-                    icon_file = request.files['icon']
-                    try:
-                        # Process and resize the icon
-                        img = Image.open(icon_file)
-                        img = img.resize((128, 128))  # Resize to standard size
-                        
-                        # Convert to base64 for storage
-                        buffered = io.BytesIO()
-                        img.save(buffered, format="PNG")
-                        img_str = base64.b64encode(buffered.getvalue()).decode()
-                app['icon'] = f"data:image/png;base64,{img_str}"
-                    except Exception as e:
-                        flash(f"Error processing icon: {str(e)}")
+        # Handle icon upload if provided
+        if 'icon' in request.files and request.files['icon'].filename:
+            icon_file = request.files['icon']
+            try:
+                # Process and resize the icon
+                img = Image.open(icon_file)
+                img = img.resize((128, 128))  # Resize to standard size
                 
-                # Update the latest version in versions list too
+                # Convert to base64 for storage
+                buffered = io.BytesIO()
+                img.save(buffered, format="PNG")
+                img_str = base64.b64encode(buffered.getvalue()).decode()
+                app['icon'] = f"data:image/png;base64,{img_str}"
+            except Exception as e:
+                flash(f"Error processing icon: {str(e)}")
+                
+        # Update the latest version in versions list too
         if app['versions']:
             app['versions'][-1]['version'] = version
                 
         db.save_app(app)
-                flash(f"App '{app_name}' updated successfully")
-                return redirect(url_for('app_detail', app_id=app_id))
+        flash(f"App '{app_name}' updated successfully")
+        return redirect(url_for('app_detail', app_id=app_id))
     
     return render_template('edit_app.html', app=app)
 
@@ -1200,7 +1200,7 @@ def download_app(app_id, filename):
             return redirect(url_for('app_detail', app_id=app_id))
     else:
         # For traditional uploads, serve from the upload folder
-    return send_from_directory(UPLOAD_FOLDER, filename, as_attachment=True)
+        return send_from_directory(UPLOAD_FOLDER, filename, as_attachment=True)
 
 @app.route('/install/<app_id>')
 def install(app_id):
@@ -1301,9 +1301,9 @@ def delete_app(app_id):
                 for version in app['versions']:
                     try:
                         if 'filename' in version:
-                filepath = os.path.join(UPLOAD_FOLDER, version['filename'])
+                            filepath = os.path.join(UPLOAD_FOLDER, version['filename'])
                             if os.path.exists(filepath):
-                os.remove(filepath)
+                                os.remove(filepath)
                                 logging.info(f"Deleted file: {filepath}")
                     except Exception as e:
                         logging.error(f"Error deleting file for version {version.get('version', 'unknown')}: {str(e)}")
