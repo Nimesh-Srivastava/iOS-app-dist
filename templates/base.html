@@ -378,6 +378,16 @@
         padding: 0 1rem;
       }
 
+      /* Navigation profile picture */
+      .nav-profile-pic {
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        transition: all 0.2s;
+      }
+
+      .nav-link:hover .nav-profile-pic {
+        border-color: var(--primary);
+      }
+
       /* Progress animation for building status */
       @keyframes pulse {
         0%,
@@ -447,14 +457,21 @@
             {% if g.user %}
             <li class="nav-item dropdown">
               <a
-                class="nav-link dropdown-toggle"
+                class="nav-link dropdown-toggle d-flex align-items-center"
                 href="#"
                 id="navbarDropdown"
                 role="button"
                 data-bs-toggle="dropdown"
                 aria-expanded="false"
               >
-                <i class="fas fa-user-circle me-1"></i>
+                <img
+                  src="{{ url_for('user_profile_picture', username=g.user.username) }}"
+                  alt="Profile"
+                  class="rounded-circle me-2 nav-profile-pic"
+                  width="28"
+                  height="28"
+                  style="object-fit: cover"
+                />
                 {{ g.user.username }}
                 <span class="badge bg-secondary ms-1">{{ g.user.role }}</span>
               </a>
@@ -462,6 +479,15 @@
                 class="dropdown-menu dropdown-menu-end"
                 aria-labelledby="navbarDropdown"
               >
+                <li>
+                  <a
+                    class="dropdown-item"
+                    href="{{ url_for('account_management') }}"
+                  >
+                    <i class="fas fa-user-cog me-2"></i> Account Settings
+                  </a>
+                </li>
+                <li><hr class="dropdown-divider" /></li>
                 <li>
                   <a class="dropdown-item" href="{{ url_for('logout') }}">
                     <i class="fas fa-sign-out-alt me-2"></i> Logout

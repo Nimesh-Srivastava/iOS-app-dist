@@ -880,7 +880,8 @@ def register():
 @admin_required
 def manage_users():
     users = db.get_users()
-    return render_template('manage_users.html', users=users)
+    current_username = session['username']
+    return render_template('manage_users.html', users=users, current_username=current_username)
 
 @app.route('/delete_user/<username>', methods=['POST'])
 @admin_required
@@ -1440,6 +1441,175 @@ def unshare_app(app_id, username):
         flash(f"Error removing access for user {username}")
         
     return redirect(url_for('app_detail', app_id=app_id))
+
+# Account management routes
+@app.route('/account', methods=['GET'])
+@login_required
+def account_management():
+    """User account management page"""
+    username = session['username']
+    user = db.get_user(username)
+    
+    if not user:
+        flash("User not found")
+        return redirect(url_for('logout'))
+    
+    return render_template('account.html', user=user)
+
+@app.route('/account/change-password', methods=['POST'])
+@login_required
+def change_password():
+    """Handle password change requests"""
+    username = session['username']
+    current_password = request.form.get('current_password')
+    new_password = request.form.get('new_password')
+    confirm_password = request.form.get('confirm_password')
+    
+    # Validate inputs
+    user = db.get_user(username)
+    if not user:
+        flash("User not found")
+        return redirect(url_for('logout'))
+    
+    if not check_password_hash(user['password'], current_password):
+        flash("Current password is incorrect")
+        return redirect(url_for('account_management'))
+    
+    if new_password != confirm_password:
+        flash("New passwords do not match")
+        return redirect(url_for('account_management'))
+    
+    if len(new_password) < 8:
+        flash("Password must be at least 8 characters long")
+        return redirect(url_for('account_management'))
+    
+    # Update password
+    new_password_hash = generate_password_hash(new_password)
+    if db.update_user_password(username, new_password_hash):
+        flash("Password updated successfully")
+    else:
+        flash("Failed to update password")
+    
+    return redirect(url_for('account_management'))
+
+@app.route('/account/profile-picture', methods=['POST'])
+@login_required
+def update_profile_picture():
+    """Handle profile picture updates"""
+    username = session['username']
+    
+    # Check if we have cropped image data
+    cropped_image = request.form.get('cropped_image')
+    
+    if cropped_image and cropped_image.startswith('data:image'):
+        # Process cropped image data (base64)
+        try:
+            # Strip header from data URL to get base64 string
+            image_format, image_data = cropped_image.split(';base64,')
+            image_data = base64.b64decode(image_data)
+            
+            # Create image from binary data
+            img = Image.open(io.BytesIO(image_data))
+            
+            # Save to a byte stream
+            img_byte_arr = io.BytesIO()
+            img.save(img_byte_arr, format='JPEG')
+            img_byte_arr.seek(0)
+            
+            # Update profile picture
+            content_type = 'image/jpeg'
+            if db.update_user_profile_picture(username, img_byte_arr.getvalue(), content_type):
+                flash("Profile picture updated successfully")
+            else:
+                flash("Failed to update profile picture")
+                
+        except Exception as e:
+            flash(f"Error processing image: {str(e)}")
+        
+        return redirect(url_for('account_management'))
+    
+    # Fallback to direct file processing if no cropped data 
+    # (shouldn't happen with updated UI but kept for robustness)
+    if 'profile_picture' not in request.files or not request.files['profile_picture'].filename:
+        flash('No file selected')
+        return redirect(url_for('account_management'))
+    
+    file = request.files['profile_picture']
+    
+    # Check if it's an image file
+    allowed_extensions = {'png', 'jpg', 'jpeg', 'gif'}
+    if '.' not in file.filename or file.filename.rsplit('.', 1)[1].lower() not in allowed_extensions:
+        flash('Invalid file type. Please upload an image file (PNG, JPG, JPEG, GIF)')
+        return redirect(url_for('account_management'))
+    
+    try:
+        # Process and resize the image
+        img = Image.open(file)
+        
+        # Fix image rotation based on EXIF data
+        try:
+            # Check if the image has EXIF data with orientation info
+            if hasattr(img, '_getexif') and img._getexif() is not None:
+                exif = dict(img._getexif().items())
+                # EXIF orientation tag is 0x0112 (274)
+                if 274 in exif:
+                    # Handle the orientation
+                    orientation = exif[274]
+                    if orientation == 2:
+                        img = img.transpose(Image.FLIP_LEFT_RIGHT)
+                    elif orientation == 3:
+                        img = img.rotate(180)
+                    elif orientation == 4:
+                        img = img.rotate(180).transpose(Image.FLIP_LEFT_RIGHT)
+                    elif orientation == 5:
+                        img = img.rotate(-90, expand=True).transpose(Image.FLIP_LEFT_RIGHT)
+                    elif orientation == 6:
+                        img = img.rotate(-90, expand=True)
+                    elif orientation == 7:
+                        img = img.rotate(90, expand=True).transpose(Image.FLIP_LEFT_RIGHT)
+                    elif orientation == 8:
+                        img = img.rotate(90, expand=True)
+        except (AttributeError, KeyError, IndexError):
+            # If there's an error getting/processing EXIF data, continue without rotation fix
+            pass
+            
+        img = img.convert('RGB')  # Convert to RGB format if needed
+        
+        # Resize to a reasonable size for profile pictures
+        img.thumbnail((300, 300))
+        
+        # Save to a byte stream
+        img_byte_arr = io.BytesIO()
+        img.save(img_byte_arr, format='JPEG')
+        img_byte_arr.seek(0)
+        
+        # Update profile picture
+        content_type = 'image/jpeg'
+        if db.update_user_profile_picture(username, img_byte_arr.getvalue(), content_type):
+            flash("Profile picture updated successfully")
+        else:
+            flash("Failed to update profile picture")
+            
+    except Exception as e:
+        flash(f"Error processing image: {str(e)}")
+    
+    return redirect(url_for('account_management'))
+
+@app.route('/user/<username>/profile-picture')
+def user_profile_picture(username):
+    """Serve user profile pictures"""
+    file_doc = db.get_user_profile_picture(username)
+    
+    if not file_doc or 'data' not in file_doc:
+        # Return the default profile picture from root directory
+        default_profile_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'defaultProf.jpg')
+        return send_file(default_profile_path, mimetype='image/jpeg')
+    
+    # Serve the image directly from memory
+    return send_file(
+        io.BytesIO(file_doc['data']),
+        mimetype=file_doc.get('content_type', 'image/jpeg')
+    )
 
 if __name__ == '__main__':
     # Ensure the build directory exists for temporary build files

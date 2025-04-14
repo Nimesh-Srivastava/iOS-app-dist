@@ -2,6 +2,7 @@ import os
 from pymongo import MongoClient
 from dotenv import load_dotenv
 from werkzeug.security import generate_password_hash
+import uuid
 
 # Load environment variables
 load_dotenv()
@@ -58,9 +59,64 @@ def save_user(user_data):
         upsert=True
     )
 
+def update_user_password(username, new_password_hash):
+    """Update a user's password"""
+    result = users_collection.update_one(
+        {'username': username},
+        {'$set': {'password': new_password_hash}}
+    )
+    return result.modified_count > 0
+
+def update_user_profile_picture(username, picture_data, content_type='image/jpeg'):
+    """Update a user's profile picture
+    
+    Args:
+        username (str): Username to update
+        picture_data (bytes): Binary image data
+        content_type (str): Image MIME type
+        
+    Returns:
+        bool: True if successful
+    """
+    # Generate a unique ID for the profile picture
+    file_id = str(uuid.uuid4())
+    
+    # Store the image in the files collection
+    save_file(file_id, f"{username}_profile", picture_data, content_type)
+    
+    # Update the user document with the file_id
+    result = users_collection.update_one(
+        {'username': username},
+        {'$set': {'profile_picture_id': file_id}}
+    )
+    
+    return result.modified_count > 0
+
+def get_user_profile_picture(username):
+    """Get a user's profile picture
+    
+    Args:
+        username (str): Username to get profile picture for
+        
+    Returns:
+        dict or None: File document if found
+    """
+    user = get_user(username)
+    if not user or 'profile_picture_id' not in user:
+        return None
+    
+    return get_file(user['profile_picture_id'])
+
 def delete_user(username):
     """Delete a user"""
+    # Delete profile picture if exists
+    user = get_user(username)
+    if user and 'profile_picture_id' in user:
+        delete_file(user['profile_picture_id'])
+    
+    # Delete user document
     users_collection.delete_one({'username': username})
+    
     # Remove any app shares for this user
     app_shares_collection.delete_many({'username': username})
 

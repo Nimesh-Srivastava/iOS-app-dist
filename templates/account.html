@@ -1,0 +1,347 @@
+{% extends "base.html" %} {% block title %}Account Management{% endblock %} {%
+block content %}
+<div class="container py-5">
+  <div class="row">
+    <div class="col-lg-3">
+      <div class="card mb-4 border-0 shadow-sm">
+        <div class="card-body text-center">
+          <h5 class="fw-bold mb-3">{{ user.username }}</h5>
+          <div class="mb-3">
+            <img
+              src="{{ url_for('user_profile_picture', username=user.username) }}"
+              alt="Profile Picture"
+              class="rounded-circle img-fluid"
+              style="width: 150px; height: 150px; object-fit: cover"
+            />
+          </div>
+          <div class="text-muted mb-2">
+            Role: <span class="badge bg-primary">{{ user.role }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="list-group mb-4 shadow-sm">
+        <a
+          href="#profile"
+          class="list-group-item list-group-item-action active"
+          data-bs-toggle="list"
+        >
+          <i class="fas fa-user me-2"></i>Profile
+        </a>
+        <a
+          href="#security"
+          class="list-group-item list-group-item-action"
+          data-bs-toggle="list"
+        >
+          <i class="fas fa-lock me-2"></i>Security
+        </a>
+        {% if user.role == 'admin' %}
+        <a
+          href="{{ url_for('manage_users') }}"
+          class="list-group-item list-group-item-action"
+        >
+          <i class="fas fa-users me-2"></i>Manage Users
+        </a>
+        {% endif %}
+        <a
+          href="{{ url_for('index') }}"
+          class="list-group-item list-group-item-action"
+        >
+          <i class="fas fa-arrow-left me-2"></i>Back to Apps
+        </a>
+      </div>
+    </div>
+
+    <div class="col-lg-9">
+      <div class="tab-content">
+        <!-- Profile section -->
+        <div class="tab-pane fade show active" id="profile">
+          <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white py-3">
+              <h5 class="card-title mb-0">
+                <i class="fas fa-user me-2"></i>Profile Information
+              </h5>
+            </div>
+            <div class="card-body">
+              <div class="row mb-3">
+                <div class="col-sm-3">
+                  <h6 class="mb-0">Username</h6>
+                </div>
+                <div class="col-sm-9 text-secondary">{{ user.username }}</div>
+              </div>
+              <div class="row mb-3">
+                <div class="col-sm-3">
+                  <h6 class="mb-0">Role</h6>
+                </div>
+                <div class="col-sm-9 text-secondary">{{ user.role }}</div>
+              </div>
+
+              <hr />
+
+              <h6 class="mb-3">Update Profile Picture</h6>
+              <form
+                action="{{ url_for('update_profile_picture') }}"
+                method="post"
+                enctype="multipart/form-data"
+                id="profile-picture-form"
+              >
+                <div class="mb-3">
+                  <label for="profile_picture" class="form-label"
+                    >Choose a new profile picture</label
+                  >
+                  <input
+                    class="form-control"
+                    type="file"
+                    id="profile_picture"
+                    name="profile_picture"
+                    accept="image/*"
+                  />
+                  <div class="form-text">
+                    Recommended size: 300x300 pixels. Supported formats: JPEG,
+                    PNG, GIF.
+                  </div>
+                </div>
+
+                <!-- Hidden field for cropped image data -->
+                <input type="hidden" name="cropped_image" id="cropped_image" />
+
+                <button
+                  type="button"
+                  class="btn btn-primary"
+                  id="upload-btn"
+                  disabled
+                >
+                  <i class="fas fa-crop-alt me-1"></i> Upload Picture
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <!-- Security section -->
+        <div class="tab-pane fade" id="security">
+          <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white py-3">
+              <h5 class="card-title mb-0">
+                <i class="fas fa-lock me-2"></i>Security Settings
+              </h5>
+            </div>
+            <div class="card-body">
+              <h6 class="mb-3">Change Password</h6>
+              <form action="{{ url_for('change_password') }}" method="post">
+                <div class="mb-3">
+                  <label for="current_password" class="form-label"
+                    >Current Password</label
+                  >
+                  <input
+                    type="password"
+                    class="form-control"
+                    id="current_password"
+                    name="current_password"
+                    required
+                  />
+                </div>
+                <div class="mb-3">
+                  <label for="new_password" class="form-label"
+                    >New Password</label
+                  >
+                  <input
+                    type="password"
+                    class="form-control"
+                    id="new_password"
+                    name="new_password"
+                    required
+                    minlength="8"
+                    pattern="^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&]{8,}$"
+                  />
+                  <div class="form-text">
+                    Minimum 8 characters, must include at least one letter and
+                    one number.
+                  </div>
+                </div>
+                <div class="mb-3">
+                  <label for="confirm_password" class="form-label"
+                    >Confirm New Password</label
+                  >
+                  <input
+                    type="password"
+                    class="form-control"
+                    id="confirm_password"
+                    name="confirm_password"
+                    required
+                  />
+                </div>
+                <button type="submit" class="btn btn-primary">
+                  <i class="fas fa-key me-1"></i> Change Password
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %} {% block scripts %}
+<script>
+  // Password confirmation validation
+  const password = document.getElementById("new_password");
+  const confirm = document.getElementById("confirm_password");
+
+  function validatePassword() {
+    if (password.value !== confirm.value) {
+      confirm.setCustomValidity("Passwords do not match");
+    } else {
+      confirm.setCustomValidity("");
+    }
+  }
+
+  if (password && confirm) {
+    password.addEventListener("change", validatePassword);
+    confirm.addEventListener("keyup", validatePassword);
+  }
+
+  // Initialize the tab from URL hash if present
+  document.addEventListener("DOMContentLoaded", function () {
+    if (window.location.hash) {
+      const tab = document.querySelector(`a[href="${window.location.hash}"]`);
+      if (tab) {
+        tab.click();
+      }
+    }
+  });
+
+  // Image cropping functionality
+  document.addEventListener("DOMContentLoaded", function () {
+    const fileInput = document.getElementById("profile_picture");
+    const uploadBtn = document.getElementById("upload-btn");
+    const form = document.getElementById("profile-picture-form");
+    const croppedInput = document.getElementById("cropped_image");
+
+    let cropper;
+
+    fileInput.addEventListener("change", function (e) {
+      const file = e.target.files[0];
+      if (!file) {
+        uploadBtn.disabled = true;
+        return;
+      }
+
+      // Enable upload button when image is selected
+      uploadBtn.disabled = false;
+    });
+
+    // Open crop modal when "Upload Picture" is clicked
+    uploadBtn.addEventListener("click", function () {
+      const file = fileInput.files[0];
+      if (!file) return;
+
+      showCropModal(file);
+    });
+
+    function showCropModal(file) {
+      // Create modal elements if they don't exist
+      if (!document.getElementById("cropModal")) {
+        createCropModal();
+      }
+
+      const modal = new bootstrap.Modal(document.getElementById("cropModal"));
+      const imagePreview = document.getElementById("image-preview");
+
+      // Reset previous cropper instance
+      if (cropper) {
+        cropper.destroy();
+      }
+
+      // Create file reader to display selected image
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        imagePreview.src = e.target.result;
+
+        // Initialize cropper when modal is shown
+        modal.show();
+        document.getElementById("cropModal").addEventListener(
+          "shown.bs.modal",
+          function () {
+            cropper = new Cropper(imagePreview, {
+              aspectRatio: 1,
+              viewMode: 1,
+              dragMode: "move",
+              autoCropArea: 0.8,
+              responsive: true,
+              restore: false,
+              guides: true,
+              center: true,
+              highlight: false,
+              cropBoxMovable: true,
+              cropBoxResizable: true,
+              toggleDragModeOnDblclick: false,
+            });
+          },
+          { once: true }
+        );
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function createCropModal() {
+      // Create modal HTML
+      const modalHTML = `
+        <div class="modal fade" id="cropModal" tabindex="-1" aria-labelledby="cropModalLabel" aria-hidden="true">
+          <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title" id="cropModalLabel">Crop Profile Picture</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+              </div>
+              <div class="modal-body">
+                <div class="img-container" style="max-height: 400px;">
+                  <img id="image-preview" src="" class="img-fluid">
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="crop-and-submit">Crop & Upload</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Append modal to body
+      document.body.insertAdjacentHTML("beforeend", modalHTML);
+
+      // Handle crop and submit button
+      document
+        .getElementById("crop-and-submit")
+        .addEventListener("click", function () {
+          if (!cropper) return;
+
+          // Get cropped canvas data
+          const canvas = cropper.getCroppedCanvas({
+            width: 300,
+            height: 300,
+            imageSmoothingEnabled: true,
+            imageSmoothingQuality: "high",
+          });
+
+          // Convert to base64 and set in hidden field
+          const imageData = canvas.toDataURL("image/jpeg");
+          croppedInput.value = imageData;
+
+          // Close modal and submit form
+          bootstrap.Modal.getInstance(
+            document.getElementById("cropModal")
+          ).hide();
+          form.submit();
+        });
+    }
+  });
+</script>
+
+<!-- Cropper.js CSS and JS -->
+<link
+  href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css"
+  rel="stylesheet"
+/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+{% endblock %}

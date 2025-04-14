@@ -19,8 +19,13 @@ content %}
         </thead>
         <tbody>
           {% for user in users %}
-          <tr>
-            <td>{{ user.username }}</td>
+          <tr {% if user.username == current_username %}class="border-start border-4 border-primary"{% endif %}>
+            <td>
+              {{ user.username }}
+              {% if user.username == current_username %}
+                <span class="badge bg-primary ms-2">You</span>
+              {% endif %}
+            </td>
             <td>
               <span
                 class="badge {% if user.role == 'admin' %}bg-danger{% else %}bg-primary{% endif %}"
