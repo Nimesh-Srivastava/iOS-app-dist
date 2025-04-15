@@ -208,6 +208,21 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+def admin_or_developer_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'username' not in session:
+            flash('Please log in to access this page')
+            return redirect(url_for('login', next=request.url))
+        
+        user = db.get_user(session['username'])
+        if not user or user['role'] not in ['admin', 'developer']:
+            flash('Admin or developer privileges required')
+            return redirect(url_for('index'))
+        
+        return f(*args, **kwargs)
+    return decorated_function
+
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
@@ -591,6 +606,7 @@ def build_ios_app_from_github(build_id, repo_url, branch, app_name, build_config
                 'version': '1.0.0',
                 'build_number': '1',
                 'icon': default_icon,
+                'owner': session['username'],  # Add owner field
                 'file_id': file_id,
                 'filename': app_filename,
                 'size': len(ipa_data),
@@ -740,7 +756,7 @@ def index():
                            latest_timestamp=latest_timestamp)
 
 @app.route('/upload', methods=['GET', 'POST'])
-@admin_required
+@admin_or_developer_required
 def upload():
     if request.method == 'POST':
         # Check if the post request has the file part
@@ -792,6 +808,9 @@ def upload():
                 if app_version:
                     app_info['version'] = app_version
                     app_info['versions'][0]['version'] = app_version
+                # Add owner field to app_info
+                app_info['owner'] = session['username']
+                
                 if bundle_id:
                     app_info['bundle_id'] = bundle_id
                 
@@ -845,7 +864,7 @@ def verify_github_token():
         return False
 
 @app.route('/github_build', methods=['GET', 'POST'])
-@admin_required
+@admin_or_developer_required
 def github_build():
     """Handle GitHub build requests"""
     if request.method == 'POST':
@@ -1049,9 +1068,9 @@ def app_detail(app_id):
     
     app = db.get_app(app_id)
     if app:
-        # Get the users this app is shared with (for admins)
+        # Get the users this app is shared with (for admins and developers)
         shared_users = []
-        if g.user and g.user.get('role') == 'admin':
+        if g.user and g.user.get('role') in ['admin', 'developer']:  # Changed condition
             shared_users = db.get_shared_users(app_id)
         
         return render_template('app_detail.html', app=app, shared_users=shared_users)
@@ -1422,7 +1441,7 @@ def check_abandoned_builds():
 
 # App sharing routes
 @app.route('/manage_sharing/<app_id>', methods=['GET', 'POST'])
-@admin_required
+@admin_or_developer_required  # Changed from admin_required
 def manage_sharing(app_id):
     """Manage which users have access to an app"""
     app = db.get_app(app_id)
@@ -1464,7 +1483,7 @@ def manage_sharing(app_id):
                           shared_users=shared_users)
 
 @app.route('/share_app/<app_id>', methods=['POST'])
-@admin_required
+@admin_or_developer_required  # Changed from admin_required
 def share_app(app_id):
     """Quick share action from app detail page"""
     username = request.form.get('username')
@@ -1478,7 +1497,7 @@ def share_app(app_id):
     return redirect(url_for('app_detail', app_id=app_id))
 
 @app.route('/unshare_app/<app_id>/<username>', methods=['POST'])
-@admin_required
+@admin_or_developer_required  # Changed from admin_required
 def unshare_app(app_id, username):
     """Quick unshare action from app detail page"""
     if db.unshare_app(app_id, username):
@@ -2177,7 +2196,6 @@ jobs:
           else
             echo "No Xcode project or workspace found"
             exit 1
-          fi
       
       - name: Build iOS app
         run: |

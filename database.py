@@ -130,7 +130,8 @@ def get_apps_for_user(username):
     """
     Get apps that a specific user has access to
     - Admins get all apps
-    - Regular users get only shared apps
+    - Developers get their own apps plus shared apps
+    - Testers get only shared apps
     """
     user = get_user(username)
     if not user:
@@ -140,15 +141,22 @@ def get_apps_for_user(username):
     if user.get('role') == 'admin':
         return get_apps()
         
-    # For regular users, get apps shared with them
+    # Get apps shared with the user
     shared_app_ids = [
         share['app_id'] 
         for share in app_shares_collection.find({'username': username}, {'_id': 0, 'app_id': 1})
     ]
     
-    if not shared_app_ids:
-        return []
-        
+    # For developers, also include apps they own
+    if user.get('role') == 'developer':
+        return list(apps_collection.find({
+            '$or': [
+                {'id': {'$in': shared_app_ids}},
+                {'owner': username}
+            ]
+        }, {'_id': 0}))
+    
+    # For testers, only show shared apps
     return list(apps_collection.find({'id': {'$in': shared_app_ids}}, {'_id': 0}))
 
 def get_app(app_id):
@@ -193,9 +201,9 @@ def share_app(app_id, username):
     if not user:
         return False, "User not found"
         
-    # Don't share with admins (they already have access)
+    # Only prevent sharing with admins (they already have access to all apps)
     if user.get('role') == 'admin':
-        return False, "No need to share with admin users"
+        return False, "No need to share with admin users (they have full access)"
     
     # Create or update share record
     app_shares_collection.update_one(
@@ -212,6 +220,15 @@ def share_app(app_id, username):
 
 def unshare_app(app_id, username):
     """Remove app sharing for a specific user"""
+    # Get app details and requesting user
+    app = get_app(app_id)
+    if not app:
+        return False
+
+    # Don't allow unsharing if the user is the app owner
+    if app.get('owner') == username:
+        return False
+
     result = app_shares_collection.delete_one({'app_id': app_id, 'username': username})
     return result.deleted_count > 0
 
@@ -235,8 +252,8 @@ def get_user_app_access(username, app_id):
     if not user:
         return False
         
-    # Admins have access to all apps
-    if user.get('role') == 'admin':
+    # Admins and Developers have access to all apps
+    if user.get('role') in ['admin', 'developer']:
         return True
         
     # Check if app is shared with the user
@@ -497,4 +514,4 @@ def delete_build_files(build_id):
         {'$unset': {'build_files': ""}}
     )
     
-    return result.deleted_count 
+    return result.deleted_count > 0

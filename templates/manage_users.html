@@ -1,5 +1,7 @@
-{% extends 'base.html' %} {% block title %}Manage Users{% endblock %} {% block
-content %}
+{% extends 'base.html' %}
+{% block title %}Manage Users{% endblock %}
+
+{% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
   <h1>Manage Users</h1>
   <a href="{{ url_for('register') }}" class="btn btn-primary">Add New User</a>
@@ -28,7 +30,7 @@ content %}
             </td>
             <td>
               <span
-                class="badge {% if user.role == 'admin' %}bg-danger{% else %}bg-primary{% endif %}"
+                class="badge {% if user.role == 'admin' %}bg-danger{% elif user.role == 'tester' %}bg-purple{% else %}bg-primary{% endif %}"
               >
                 {{ user.role }}
               </span>
