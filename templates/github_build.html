@@ -1,5 +1,32 @@
 {% extends 'base.html' %} {% block title %}GitHub Build - AppCenter{% endblock
-%} {% block content %}
+%} {% block head %}
+<style>
+  /* Animation for in-progress builds */
+  @keyframes buildPulse {
+    0% {
+      border-left-color: rgba(13, 110, 253, 0.3);
+    }
+    50% {
+      border-left-color: rgba(13, 110, 253, 0.8);
+    }
+    100% {
+      border-left-color: rgba(13, 110, 253, 0.3);
+    }
+  }
+
+  /* Special styling for in-progress builds */
+  .build-in-progress {
+    border-left: 4px solid rgba(13, 110, 253, 0.5);
+    animation: buildPulse 2s infinite ease-in-out;
+    background-color: rgba(13, 110, 253, 0.03);
+  }
+
+  /* Ensure the hover effect is still visible */
+  .build-in-progress:hover {
+    background-color: rgba(13, 110, 253, 0.08);
+  }
+</style>
+{% endblock %} {% block content %}
 <div class="row justify-content-center">
   <div class="col-lg-10">
     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -13,6 +40,29 @@
         <i class="fas fa-arrow-left me-2"></i>Back to Apps
       </a>
     </div>
+
+    {% set in_progress_builds = builds|selectattr('status', 'in', ['building',
+    'in_progress', 'queued'])|list %} {% if in_progress_builds|length > 0 %}
+    <div class="alert alert-info mb-4">
+      <div class="d-flex align-items-center">
+        <div
+          class="spinner-border spinner-border-sm text-primary me-3"
+          role="status"
+        >
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <div>
+          <strong>Builds in progress!</strong>
+          <span
+            >There {% if in_progress_builds|length == 1 %}is{% else %}are{%
+            endif %} {{ in_progress_builds|length }} build{% if
+            in_progress_builds|length > 1 %}s{% endif %} currently in progress.
+            This page will automatically refresh to show build updates.</span
+          >
+        </div>
+      </div>
+    </div>
+    {% endif %}
 
     <div class="row">
       <div class="col-lg-5">
@@ -57,17 +107,28 @@
                   <span class="input-group-text"
                     ><i class="fas fa-code-branch"></i
                   ></span>
-                  <input
-                    type="text"
-                    class="form-control"
+                  <select
+                    class="form-select"
                     id="branch"
                     name="branch"
-                    value="main"
                     required
-                  />
+                    disabled
+                  >
+                    <option value="" selected>
+                      -- Enter repository URL first --
+                    </option>
+                  </select>
+                  <button
+                    class="btn btn-outline-secondary"
+                    type="button"
+                    id="refreshBranches"
+                    disabled
+                  >
+                    <i class="fas fa-sync-alt"></i>
+                  </button>
                 </div>
-                <div class="form-text">
-                  The branch to build from (e.g., main, develop)
+                <div class="form-text" id="branchHelp">
+                  Select the branch to build from
                 </div>
               </div>
 
@@ -213,10 +274,21 @@
             <span class="badge bg-secondary">{{ builds|length }} Build(s)</span>
           </div>
 
+          <!-- Hidden div to store build data for auto-refresh -->
+          <div
+            id="build-data"
+            data-total-count="{{ builds|length }}"
+            data-in-progress-count="{{ builds|selectattr('status', 'in', ['building', 'in_progress', 'queued'])|list|length }}"
+            data-timestamp="{{ builds|map(attribute='end_time')|reject('none')|list|sort|last|default('', true) }}"
+            style="display: none"
+          ></div>
+
           {% if builds %}
           <div class="list-group list-group-flush">
             {% for build in builds %}
-            <div class="list-group-item list-group-item-action p-3">
+            <div
+              class="list-group-item list-group-item-action p-3 {% if build.status in ['building', 'in_progress', 'queued'] %}build-in-progress{% endif %}"
+            >
               <div
                 class="d-flex w-100 justify-content-between align-items-center mb-2"
               >
@@ -239,6 +311,10 @@
                   <span class="status-badge status-building pulse-animation">
                     <i class="fas fa-spinner fa-spin"></i> Building
                   </span>
+                  {% elif build.status == 'cancelled' %}
+                  <span class="status-badge status-cancelled">
+                    <i class="fas fa-ban"></i> Cancelled
+                  </span>
                   {% else %}
                   <span class="status-badge status-failed">
                     <i class="fas fa-times-circle"></i> Failed
@@ -251,39 +327,132 @@
                 <div class="d-flex flex-wrap gap-3">
                   <div>
                     <i class="fab fa-github me-1"></i>
-                    <span
-                      class="text-truncate"
-                      style="max-width: 200px; display: inline-block"
+                    {% if build.repo_url %} {% if 'github.com' in build.repo_url
+                    %} {% if not build.repo_url.startswith('http') %}
+                    <a
+                      href="https://{{ build.repo_url }}"
+                      target="_blank"
+                      class="text-primary"
                     >
-                      {{ build.repo_url }}
-                    </span>
+                      <span
+                        class="text-truncate"
+                        style="max-width: 200px; display: inline-block"
+                      >
+                        {{ build.repo_url }}
+                      </span>
+                      <i class="fas fa-external-link-alt ms-1 small"></i>
+                    </a>
+                    {% else %}
+                    <a
+                      href="{{ build.repo_url }}"
+                      target="_blank"
+                      class="text-primary"
+                    >
+                      <span
+                        class="text-truncate"
+                        style="max-width: 200px; display: inline-block"
+                      >
+                        {{ build.repo_url }}
+                      </span>
+                      <i class="fas fa-external-link-alt ms-1 small"></i>
+                    </a>
+                    {% endif %} {% else %}
+                    <a
+                      href="https://github.com/{{ build.repo_url }}"
+                      target="_blank"
+                      class="text-primary"
+                    >
+                      <span
+                        class="text-truncate"
+                        style="max-width: 200px; display: inline-block"
+                      >
+                        {{ build.repo_url }}
+                      </span>
+                      <i class="fas fa-external-link-alt ms-1 small"></i>
+                    </a>
+                    {% endif %} {% else %}
+                    <span class="text-white">Not specified</span>
+                    {% endif %}
                   </div>
                   <div>
-                    <i class="fas fa-code-branch me-1"></i> {{ build.branch }}
+                    <i class="fas fa-code-branch me-1"></i>
+                    <span class="text-muted">Branch:</span>
+                    <span class="text-white">{{ build.branch }}</span>
                   </div>
                   <div>
                     <i class="far fa-calendar-alt me-1"></i>
-                    {{ build.start_time.split('T')[0] }}
+                    Started: {{ build.start_time|format_date if build.start_time
+                    else 'N/A' }}
                   </div>
+                  {% if build.duration %}
+                  <div>
+                    <i class="fas fa-stopwatch me-1"></i>
+                    Duration:
+                    <span class="badge bg-info">{{ build.duration }}</span>
+                  </div>
+                  {% elif build.status == 'building' or build.status ==
+                  'in_progress' or build.status == 'queued' %}
+                  <div>
+                    <i class="fas fa-stopwatch me-1"></i>
+                    Duration:
+                    <span class="badge bg-warning text-dark">Running...</span>
+                  </div>
+                  {% endif %}
                 </div>
               </div>
 
-              <div class="d-flex gap-2">
-                <a
-                  href="{{ url_for('build_log', build_id=build.id) }}"
-                  class="btn btn-sm btn-outline-secondary"
-                >
-                  <i class="fas fa-file-alt me-1"></i> View Log
-                </a>
+              <div class="d-flex justify-content-between">
+                <div class="d-flex gap-2">
+                  <a
+                    href="{{ url_for('build_log', build_id=build.id) }}"
+                    class="btn btn-sm btn-outline-secondary"
+                  >
+                    <i class="fas fa-file-alt me-1"></i> View Log
+                  </a>
 
-                {% if build.status == 'completed' %}
-                <a
-                  href="{{ url_for('download_build', build_id=build.id) }}"
-                  class="btn btn-sm btn-success"
-                >
-                  <i class="fas fa-download me-1"></i> Download IPA
-                </a>
-                {% endif %}
+                  <a
+                    href="{{ url_for('download_build_log', build_id=build.id) }}"
+                    class="btn btn-sm btn-outline-secondary"
+                  >
+                    <i class="fas fa-file-download me-1"></i> Download Log
+                  </a>
+
+                  {% if build.status == 'building' or build.status ==
+                  'in_progress' or build.status == 'queued' %}
+                  <a
+                    href="{{ url_for('stop_build', build_id=build.id) }}"
+                    class="btn btn-sm btn-danger"
+                    onclick="return confirm('Are you sure you want to stop this build?');"
+                  >
+                    <i class="fas fa-stop-circle me-1"></i> Stop
+                  </a>
+                  {% endif %} {% if build.status == 'completed' %}
+                  <a
+                    href="{{ url_for('download_build', build_id=build.id) }}"
+                    class="btn btn-sm btn-success"
+                  >
+                    <i class="fas fa-download me-1"></i> Download IPA
+                  </a>
+                  {% endif %}
+                </div>
+                <div class="border-start ps-2">
+                  {% if build.status not in ['building', 'in_progress',
+                  'queued'] %}
+                  <form
+                    action="{{ url_for('delete_build', build_id=build.id) }}"
+                    method="post"
+                    style="display: inline"
+                    onsubmit="return confirm('Are you sure you want to delete this build? This action cannot be undone.');"
+                  >
+                    <button
+                      type="submit"
+                      class="btn btn-sm btn-outline-danger ms-2"
+                    >
+                      <i class="fas fa-trash-alt me-1"></i> Delete
+                    </button>
+                  </form>
+                  {% endif %}
+                </div>
               </div>
             </div>
             {% endfor %}
@@ -302,4 +471,152 @@
     </div>
   </div>
 </div>
+{% endblock %} {% block scripts %}
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const repoUrlInput = document.getElementById("repo_url");
+    const branchSelect = document.getElementById("branch");
+    const refreshButton = document.getElementById("refreshBranches");
+    const branchHelp = document.getElementById("branchHelp");
+
+    // Function to fetch branches from the server
+    function fetchBranches(repoUrl) {
+      if (!repoUrl.trim()) {
+        resetBranchSelect();
+        return;
+      }
+
+      // Show loading state
+      branchSelect.disabled = true;
+      refreshButton.disabled = true;
+      branchHelp.innerHTML =
+        '<i class="fas fa-spinner fa-spin"></i> Fetching branches...';
+
+      fetch(`/api/branches?repo_url=${encodeURIComponent(repoUrl)}`)
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error("Failed to fetch branches");
+          }
+          return response.json();
+        })
+        .then((branches) => {
+          // Clear existing options
+          branchSelect.innerHTML = "";
+
+          if (branches.length === 0) {
+            const option = document.createElement("option");
+            option.value = "";
+            option.textContent = "No branches found";
+            branchSelect.appendChild(option);
+            branchHelp.textContent = "No branches found in repository";
+          } else {
+            // Add branches to select dropdown
+            branches.forEach((branch) => {
+              const option = document.createElement("option");
+              option.value = branch;
+              option.textContent = branch;
+              branchSelect.appendChild(option);
+            });
+            branchHelp.textContent = `${branches.length} branches found - select one to build from`;
+          }
+
+          // Enable the select
+          branchSelect.disabled = false;
+          refreshButton.disabled = false;
+        })
+        .catch((error) => {
+          console.error("Error fetching branches:", error);
+          resetBranchSelect(
+            "Failed to fetch branches. Please check the repository URL."
+          );
+        });
+    }
+
+    // Reset branch select to initial state
+    function resetBranchSelect(helpText = "Enter repository URL first") {
+      branchSelect.innerHTML =
+        '<option value="" selected>-- Enter repository URL first --</option>';
+      branchSelect.disabled = true;
+      refreshButton.disabled = true;
+      branchHelp.textContent = helpText;
+    }
+
+    // Debounce function to prevent too many requests
+    function debounce(func, wait) {
+      let timeout;
+      return function (...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+      };
+    }
+
+    // Debounced version of fetchBranches
+    const debouncedFetchBranches = debounce(fetchBranches, 500);
+
+    // Listen for changes to the repository URL input
+    repoUrlInput.addEventListener("input", function () {
+      if (this.value.trim()) {
+        debouncedFetchBranches(this.value);
+        refreshButton.disabled = false;
+      } else {
+        resetBranchSelect();
+      }
+    });
+
+    // Listen for click on refresh button
+    refreshButton.addEventListener("click", function () {
+      fetchBranches(repoUrlInput.value);
+    });
+
+    // Auto-refresh functionality for builds
+    const buildData = document.getElementById("build-data");
+    if (buildData) {
+      // Get initial data
+      let lastTotalCount =
+        parseInt(buildData.getAttribute("data-total-count"), 10) || 0;
+      let lastInProgressCount =
+        parseInt(buildData.getAttribute("data-in-progress-count"), 10) || 0;
+      let lastTimestamp = buildData.getAttribute("data-timestamp") || "";
+
+      // Function to check for build updates
+      function checkForBuildUpdates() {
+        fetch("/api/build_status")
+          .then((response) => response.json())
+          .then((data) => {
+            // Determine if we need to refresh based on:
+            // 1. Total number of builds has changed
+            // 2. Number of in-progress builds has changed
+            // 3. Latest timestamp has changed (build completed or updated)
+            if (
+              data.total_count !== lastTotalCount ||
+              data.in_progress_count !== lastInProgressCount ||
+              (data.latest_timestamp && data.latest_timestamp !== lastTimestamp)
+            ) {
+              console.log("Build status changed! Refreshing page...");
+
+              // Small visual indicator that refresh is happening
+              const buildsCard = document.querySelector(".card-header .badge");
+              if (buildsCard) {
+                buildsCard.innerHTML =
+                  '<i class="fas fa-spinner fa-spin me-1"></i> Refreshing...';
+              }
+
+              // Refresh the page
+              window.location.reload();
+            }
+          })
+          .catch((error) => {
+            console.error("Error checking for build updates:", error);
+          });
+      }
+
+      // If there are builds in progress, check more frequently (every 3 seconds)
+      // Otherwise, check less frequently (every 10 seconds)
+      const checkInterval = lastInProgressCount > 0 ? 3000 : 10000;
+
+      // Start the periodic check
+      setInterval(checkForBuildUpdates, checkInterval);
+    }
+  });
+</script>
 {% endblock %}

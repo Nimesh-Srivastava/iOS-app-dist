@@ -3,6 +3,7 @@ from pymongo import MongoClient
 from dotenv import load_dotenv
 from werkzeug.security import generate_password_hash
 import uuid
+from datetime import datetime
 
 # Load environment variables
 load_dotenv()
@@ -263,8 +264,30 @@ def save_build(build_data):
 def update_build_status(build_id, status, log=None, end_time=None):
     """Update build status and optional fields"""
     update_data = {'status': status}
+    
     if log is not None:
-        update_data['log'] = log
+        # First check if the log field exists and what type it is
+        build = get_build(build_id)
+        if build and 'log' in build:
+            if isinstance(build['log'], list):
+                # If it's already an array, append to it
+                builds_collection.update_one(
+                    {'id': build_id},
+                    {'$push': {'log': log}}
+                )
+            else:
+                # If it's a string, convert to array with both old and new content
+                builds_collection.update_one(
+                    {'id': build_id},
+                    {'$set': {'log': [build['log'], log]}}
+                )
+        else:
+            # If log field doesn't exist, create it as an array
+            builds_collection.update_one(
+                {'id': build_id},
+                {'$set': {'log': [log]}}
+            )
+    
     if end_time is not None:
         update_data['end_time'] = end_time
     
@@ -273,6 +296,28 @@ def update_build_status(build_id, status, log=None, end_time=None):
         {'$set': update_data}
     )
     return True
+
+def delete_build(build_id):
+    """
+    Delete a build by ID
+    
+    Args:
+        build_id (str): Build identifier
+        
+    Returns:
+        bool: True if the build was deleted, False otherwise
+    """
+    # Get the build to check if it exists
+    build = get_build(build_id)
+    if not build:
+        return False
+    
+    # Delete any associated build files first
+    delete_build_files(build_id)
+    
+    # Delete the build
+    result = builds_collection.delete_one({'id': build_id})
+    return result.deleted_count > 0
 
 # File storage operations
 def save_file(file_id, filename, file_data, content_type='application/octet-stream'):
@@ -361,4 +406,95 @@ def delete_app_files(app_id):
         if delete_file(file_id):
             deleted_count += 1
     
-    return deleted_count 
+    return deleted_count
+
+# Build file storage operations
+def save_build_file(build_id, file_path, file_data, content_type='application/octet-stream'):
+    """
+    Store a build file in MongoDB
+    
+    Args:
+        build_id (str): The build ID this file belongs to
+        file_path (str): Relative path within the build (simulates file system hierarchy)
+        file_data (bytes): Binary content of the file
+        content_type (str): MIME type of the file
+        
+    Returns:
+        str: Generated file_id
+    """
+    file_id = str(uuid.uuid4())
+    
+    # Create a document that includes build reference and path
+    file_doc = {
+        'file_id': file_id,
+        'build_id': build_id,
+        'file_path': file_path,
+        'content_type': content_type,
+        'size': len(file_data),
+        'data': file_data,
+        'upload_date': datetime.now().isoformat()
+    }
+    
+    files_collection.insert_one(file_doc)
+    
+    # Update the build to reference this file
+    builds_collection.update_one(
+        {'id': build_id},
+        {'$push': {'build_files': file_id}}
+    )
+    
+    return file_id
+
+def get_build_file(build_id, file_path=None, file_id=None):
+    """
+    Retrieve a build file from MongoDB
+    
+    Args:
+        build_id (str): The build ID to get files for
+        file_path (str, optional): Specific file path to retrieve
+        file_id (str, optional): Specific file ID to retrieve
+        
+    Returns:
+        dict or list: The file document if file_path or file_id is specified,
+                     otherwise a list of all file documents for the build
+    """
+    if file_id:
+        # Get specific file by ID
+        return files_collection.find_one({
+            'file_id': file_id, 
+            'build_id': build_id
+        }, {'_id': 0})
+    
+    if file_path:
+        # Get specific file by path
+        return files_collection.find_one({
+            'build_id': build_id,
+            'file_path': file_path
+        }, {'_id': 0})
+    
+    # Get all files for this build
+    return list(files_collection.find(
+        {'build_id': build_id}, 
+        {'_id': 0}
+    ))
+
+def delete_build_files(build_id):
+    """
+    Delete all files associated with a build
+    
+    Args:
+        build_id (str): Build identifier
+        
+    Returns:
+        int: Number of files deleted
+    """
+    # Delete all files for this build
+    result = files_collection.delete_many({'build_id': build_id})
+    
+    # Update the build to remove file references
+    builds_collection.update_one(
+        {'id': build_id},
+        {'$unset': {'build_files': ""}}
+    )
+    
+    return result.deleted_count 

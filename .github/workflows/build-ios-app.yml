@@ -81,7 +81,7 @@ build_record = {
     'xcode_version': 'latest',
     'status': 'queued',
     'start_time': datetime.now().isoformat(),
-    'log': f'GitHub Actions automated build for {repo_url} (branch: {branch})\n'
+    'log': [f'GitHub Actions automated build for {repo_url} (branch: {branch})\n']
 }
 
 # Save build record
