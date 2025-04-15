@@ -819,9 +819,14 @@ def upload():
                 
             return redirect(url_for('index'))
     
-    # For GET request, show upload form
-    apps = db.get_apps()
-    return render_template('upload.html', apps=apps)
+    if request.method == 'GET':
+        # Filter apps based on user role
+        if g.user['role'] == 'developer':
+            apps = db.get_apps_for_user(g.user['username'])  # Only apps the developer has access to
+        else:
+            apps = db.get_apps()  # Admins can see all apps
+        
+        return render_template('upload.html', apps=apps)
 
 def verify_github_token():
     """
