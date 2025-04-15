@@ -13,6 +13,7 @@ uploads/
 temp/
 migrate_to_mongodb.py
 fix_log_format.py
+__pycache__/
 
 # Log files
 migration.log
