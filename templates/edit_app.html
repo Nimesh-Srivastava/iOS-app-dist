@@ -82,7 +82,10 @@ block content %}
 								<input
 									type="text"
 									class="form-control"
-									value="{{ app.upload_date.split('T')[0] }}"
+									value="{% if app.upload_date %} {{
+										app.upload_date.split('T')[0] }} {% elif
+										app.creation_date %} {{ app.creation_date.split('T')[0]
+										}} {% else %} Unknown {% endif %}"
 									readonly
 									disabled
 								/>

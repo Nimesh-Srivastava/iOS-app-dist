@@ -123,20 +123,10 @@ endblock %} {% block content %}
 										{% if not (g.user.role == 'developer'
 										and username == g.user.username) %}
 										<form
-											action="{{ url_for('manage_sharing', app_id=app.id) }}"
+											action="{{ url_for('unshare_app', app_id=app.id, username=username) }}"
 											method="post"
 											class="d-inline"
 										>
-											<input
-												type="hidden"
-												name="action"
-												value="unshare"
-											/>
-											<input
-												type="hidden"
-												name="username"
-												value="{{ username }}"
-											/>
 											<button
 												type="submit"
 												class="btn btn-sm btn-danger"
