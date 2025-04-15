@@ -213,7 +213,7 @@ def admin_or_developer_required(f):
     def decorated_function(*args, **kwargs):
         if 'username' not in session:
             flash('Please log in to access this page')
-            return redirect(url_for('login', next=request.url))
+            return redirect(url_for('login'))
         
         user = db.get_user(session['username'])
         if not user or user['role'] not in ['admin', 'developer']:
@@ -1441,7 +1441,7 @@ def check_abandoned_builds():
 
 # App sharing routes
 @app.route('/manage_sharing/<app_id>', methods=['GET', 'POST'])
-@admin_or_developer_required  # Changed from admin_required
+@admin_or_developer_required
 def manage_sharing(app_id):
     """Manage which users have access to an app"""
     app = db.get_app(app_id)
@@ -1462,10 +1462,11 @@ def manage_sharing(app_id):
                 flash(f"Error sharing app: {message}")
                 
         elif action == 'unshare' and username:
-            if db.unshare_app(app_id, username):
-                flash(f"App access removed for user {username}")
+            success, message = db.unshare_app(app_id, username, requesting_user=session['username'])
+            if not success:
+                flash(f"Error removing access: {message}")
             else:
-                flash(f"Error removing access for user {username}")
+                flash(f"App access removed for user {username}")
         
         return redirect(url_for('manage_sharing', app_id=app_id))
         

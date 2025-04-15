@@ -1,153 +1,166 @@
 {% extends 'base.html' %} {% block title %}Manage App Sharing - {{ app.name }}{%
 endblock %} {% block content %}
 <div class="container mt-4">
-  <div class="d-flex justify-content-between align-items-center mb-4">
-    <h1>Manage App Sharing</h1>
-    <a
-      href="{{ url_for('app_detail', app_id=app.id) }}"
-      class="btn btn-outline-secondary"
-    >
-      <i class="fas fa-arrow-left"></i> Back to App
-    </a>
-  </div>
+	<div class="d-flex justify-content-between align-items-center mb-4">
+		<h1>Manage App Sharing</h1>
+		<a
+			href="{{ url_for('app_detail', app_id=app.id) }}"
+			class="btn btn-outline-secondary"
+		>
+			<i class="fas fa-arrow-left"></i> Back to App
+		</a>
+	</div>
 
-  <div class="card mb-4">
-    <div class="card-header bg-primary text-white">
-      <h5 class="mb-0">{{ app.name }} (v{{ app.version }})</h5>
-    </div>
-    <div class="card-body">
-      <div class="row">
-        <div class="col-md-2">
-          <img
-            src="{{ app.icon }}"
-            alt="{{ app.name }}"
-            class="img-fluid rounded"
-            style="max-width: 100px"
-          />
-        </div>
-        <div class="col-md-10">
-          <p><strong>Bundle ID:</strong> {{ app.bundle_id }}</p>
-          <p><strong>Uploaded:</strong> {{ app.upload_date }}</p>
-          <p>
-            <small class="text-muted"
-              >Control who can access this app by sharing it with specific
-              users</small
-            >
-          </p>
-        </div>
-      </div>
-    </div>
-  </div>
+	<div class="card mb-4">
+		<div class="card-header bg-primary text-white">
+			<h5 class="mb-0">{{ app.name }} (v{{ app.version }})</h5>
+		</div>
+		<div class="card-body">
+			<div class="row">
+				<div class="col-md-2">
+					<img
+						src="{{ app.icon }}"
+						alt="{{ app.name }}"
+						class="img-fluid rounded"
+						style="max-width: 100px"
+					/>
+				</div>
+				<div class="col-md-10">
+					<p><strong>Bundle ID:</strong> {{ app.bundle_id }}</p>
+					<p><strong>Uploaded:</strong> {{ app.upload_date }}</p>
+					<p>
+						<small class="text-muted"
+							>Control who can access this app by sharing it with
+							specific users</small
+						>
+					</p>
+				</div>
+			</div>
+		</div>
+	</div>
 
-  <div class="row">
-    <!-- Share with new user form -->
-    <div class="col-md-6">
-      <div class="card h-100">
-        <div class="card-header">
-          <h5 class="mb-0">Share with User</h5>
-        </div>
-        <div class="card-body">
-          {% if users %}
-          <form
-            action="{{ url_for('manage_sharing', app_id=app.id) }}"
-            method="post"
-          >
-            <input type="hidden" name="action" value="share" />
-            <div class="mb-3">
-              <label for="username" class="form-label">Select User</label>
-              <select
-                class="form-select"
-                id="username"
-                name="username"
-                required
-              >
-                <option value="" selected disabled>Choose a user...</option>
-                {% for user in users %}
-                <option
-                  value="{{ user.username }}"
-                  {%
-                  if
-                  user.username
-                  in
-                  shared_users
-                  %}disabled{%
-                  endif
-                  %}
-                >
-                  {{ user.username }} {% if user.username in shared_users
-                  %}(Already has access){% endif %}
-                </option>
-                {% endfor %}
-              </select>
-            </div>
-            <button type="submit" class="btn btn-primary">
-              <i class="fas fa-share"></i> Share App
-            </button>
-          </form>
-          {% else %}
-          <div class="alert alert-info">
-            No regular users available. Create some users to share apps with
-            them.
-          </div>
-          {% endif %}
-        </div>
-      </div>
-    </div>
+	<div class="row">
+		<!-- Share with new user form -->
+		<div class="col-md-6">
+			<div class="card h-100">
+				<div class="card-header">
+					<h5 class="mb-0">Share with User</h5>
+				</div>
+				<div class="card-body">
+					{% if users %}
+					<form
+						action="{{ url_for('manage_sharing', app_id=app.id) }}"
+						method="post"
+					>
+						<input type="hidden" name="action" value="share" />
+						<div class="mb-3">
+							<label for="username" class="form-label"
+								>Select User</label
+							>
+							<select
+								class="form-select"
+								id="username"
+								name="username"
+								required
+							>
+								<option value="" selected disabled>
+									Choose a user...
+								</option>
+								{% for user in users %}
+								<option
+									value="{{ user.username }}"
+									{%
+									if
+									user.username
+									in
+									shared_users
+									%}disabled{%
+									endif
+									%}
+								>
+									{{ user.username }} {% if user.username in
+									shared_users %}(Already has access){% endif
+									%}
+								</option>
+								{% endfor %}
+							</select>
+						</div>
+						<button type="submit" class="btn btn-primary">
+							<i class="fas fa-share"></i> Share App
+						</button>
+					</form>
+					{% else %}
+					<div class="alert alert-info">
+						No regular users available. Create some users to share
+						apps with them.
+					</div>
+					{% endif %}
+				</div>
+			</div>
+		</div>
 
-    <!-- Users with access -->
-    <div class="col-md-6">
-      <div class="card h-100">
-        <div class="card-header">
-          <h5 class="mb-0">Users with Access</h5>
-        </div>
-        <div class="card-body">
-          {% if shared_users %}
-          <div class="table-responsive">
-            <table class="table table-striped">
-              <thead>
-                <tr>
-                  <th>Username</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for username in shared_users %}
-                <tr>
-                  <td>{{ username }}</td>
-                  <td>
-                    <form
-                      action="{{ url_for('manage_sharing', app_id=app.id) }}"
-                      method="post"
-                      class="d-inline"
-                    >
-                      <input type="hidden" name="action" value="unshare" />
-                      <input
-                        type="hidden"
-                        name="username"
-                        value="{{ username }}"
-                      />
-                      <button
-                        type="submit"
-                        class="btn btn-sm btn-danger"
-                        onclick="return confirm('Are you sure you want to revoke access for {{ username }}?')"
-                      >
-                        <i class="fas fa-times"></i> Revoke Access
-                      </button>
-                    </form>
-                  </td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-          {% else %}
-          <div class="alert alert-info">
-            This app is not shared with any users yet.
-          </div>
-          {% endif %}
-        </div>
-      </div>
-    </div>
-  </div>
+		<!-- Users with access -->
+		<div class="col-md-6">
+			<div class="card h-100">
+				<div class="card-header">
+					<h5 class="mb-0">Users with Access</h5>
+				</div>
+				<div class="card-body">
+					{% if shared_users %}
+					<div class="table-responsive">
+						<table class="table table-striped">
+							<thead>
+								<tr>
+									<th>Username</th>
+									<th>Action</th>
+								</tr>
+							</thead>
+							<tbody>
+								{% for username in shared_users %}
+								<tr>
+									<td>{{ username }}</td>
+									<td>
+										{% if not (g.user.role == 'developer'
+										and username == g.user.username) %}
+										<form
+											action="{{ url_for('manage_sharing', app_id=app.id) }}"
+											method="post"
+											class="d-inline"
+										>
+											<input
+												type="hidden"
+												name="action"
+												value="unshare"
+											/>
+											<input
+												type="hidden"
+												name="username"
+												value="{{ username }}"
+											/>
+											<button
+												type="submit"
+												class="btn btn-sm btn-danger"
+												onclick="return confirm('Are you sure you want to revoke access for {{ username }}?')"
+											>
+												<i class="fas fa-times"></i>
+												Revoke Access
+											</button>
+										</form>
+										{% endif %}
+									</td>
+								</tr>
+								{% endfor %}
+							</tbody>
+						</table>
+					</div>
+					{% else %}
+					<div class="alert alert-info">
+						This app is not shared with any users yet.
+					</div>
+					{% endif %}
+				</div>
+			</div>
+		</div>
+	</div>
 </div>
 {% endblock %}

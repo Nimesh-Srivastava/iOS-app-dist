@@ -218,19 +218,19 @@ def share_app(app_id, username):
     
     return True, f"App {app.get('name', app_id)} shared with {username}"
 
-def unshare_app(app_id, username):
+def unshare_app(app_id, username, requesting_user=None):
     """Remove app sharing for a specific user"""
-    # Get app details and requesting user
+    # Get app details
     app = get_app(app_id)
     if not app:
-        return False
-
-    # Don't allow unsharing if the user is the app owner
-    if app.get('owner') == username:
-        return False
+        return False, "App not found"
+        
+    # Don't allow developers to unshare themselves
+    if requesting_user and username == requesting_user and get_user(requesting_user).get('role') == 'developer':
+        return False, "Developers cannot remove their own app access"
 
     result = app_shares_collection.delete_one({'app_id': app_id, 'username': username})
-    return result.deleted_count > 0
+    return True, "Access removed successfully" if result.deleted_count > 0 else False, "Share not found"
 
 def get_app_shares(app_id=None):
     """
