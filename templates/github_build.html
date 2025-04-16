@@ -75,7 +75,7 @@
           </div>
           <div class="card-body p-4">
             <form
-              action="{{ url_for('github_build') }}"
+              action="{{ url_for('build.github_build') }}"
               method="post"
               enctype="multipart/form-data"
             >
@@ -411,7 +411,7 @@
                   </a>
 
                   <a
-                    href="{{ url_for('download_build_log', build_id=build.id) }}"
+                    href="{{ url_for('build.download_build_log', build_id=build.id) }}"
                     class="btn btn-sm btn-outline-secondary"
                   >
                     <i class="fas fa-file-download me-1"></i> Download Log
@@ -428,7 +428,7 @@
                   </a>
                   {% endif %} {% if build.status == 'completed' %}
                   <a
-                    href="{{ url_for('download_build', build_id=build.id) }}"
+                    href="{{ url_for('build.download_build', build_id=build.id) }}"
                     class="btn btn-sm btn-success"
                   >
                     <i class="fas fa-download me-1"></i> Download IPA
@@ -439,7 +439,7 @@
                   {% if build.status not in ['building', 'in_progress',
                   'queued'] %}
                   <form
-                    action="{{ url_for('delete_build', build_id=build.id) }}"
+                    action="{{ url_for('build.delete_build', build_id=build.id) }}"
                     method="post"
                     style="display: inline"
                     onsubmit="return confirm('Are you sure you want to delete this build? This action cannot be undone.');"

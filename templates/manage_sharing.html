@@ -4,7 +4,7 @@ endblock %} {% block content %}
 	<div class="d-flex justify-content-between align-items-center mb-4">
 		<h1>Manage App Sharing</h1>
 		<a
-			href="{{ url_for('app_detail', app_id=app.id) }}"
+			href="{{ url_for('app.app_detail', app_id=app.id) }}"
 			class="btn btn-outline-secondary"
 		>
 			<i class="fas fa-arrow-left"></i> Back to App
@@ -49,7 +49,7 @@ endblock %} {% block content %}
 				<div class="card-body">
 					{% if users %}
 					<form
-						action="{{ url_for('manage_sharing', app_id=app.id) }}"
+						action="{{ url_for('app.manage_sharing', app_id=app.id) }}"
 						method="post"
 					>
 						<input type="hidden" name="action" value="share" />
@@ -123,7 +123,7 @@ endblock %} {% block content %}
 										{% if not (g.user.role == 'developer'
 										and username == g.user.username) %}
 										<form
-											action="{{ url_for('unshare_app', app_id=app.id, username=username) }}"
+											action="{{ url_for('app.unshare_app', app_id=app.id, username=username) }}"
 											method="post"
 											class="d-inline"
 										>

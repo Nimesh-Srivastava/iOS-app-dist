@@ -1,4 +1,3 @@
-
 {% extends 'base.html' %}
 
 {% block title %}Install {{ app.name }}{% endblock %}
@@ -35,7 +34,7 @@
                     </div>
                 </div>
                 <div class="card-footer text-muted">
-                    <a href="{{ url_for('app_detail', app_id=app.id) }}" class="btn btn-outline-secondary">Back to App Details</a>
+                    <a href="{{ url_for('app.app_detail', app_id=app.id) }}" class="btn btn-outline-secondary">Back to App Details</a>
                 </div>
             </div>
         </div>

@@ -85,11 +85,11 @@ def manage_users():
 def delete_user(username):
     if session.get('username') == username:
         flash('You cannot delete your own account')
-        return redirect(url_for('admin.manage_users'))
+        return redirect(url_for('auth.manage_users'))
         
     db.delete_user(username)
     flash(f'User {username} deleted')
-    return redirect(url_for('admin.manage_users'))
+    return redirect(url_for('auth.manage_users'))
 
 @auth_bp.route('/account', methods=['GET'])
 @login_required

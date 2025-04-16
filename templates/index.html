@@ -7,11 +7,11 @@ endblock %} {% block content %}
 	</div>
 	{% if g.user and g.user.role in ['admin', 'developer'] %}
 	<div class="d-flex gap-2">
-		<a href="{{ url_for('upload') }}" class="btn btn-primary">
+		<a href="{{ url_for('app.upload') }}" class="btn btn-primary">
 			<i class="fas fa-upload me-2"></i>Upload App
 		</a>
 		<a
-			href="{{ url_for('github_build') }}"
+			href="{{ url_for('build.github_build') }}"
 			class="btn btn-outline-secondary"
 		>
 			<i class="fab fa-github me-2"></i>GitHub Build
@@ -80,13 +80,13 @@ endblock %} {% block content %}
 				class="card-footer bg-transparent d-flex justify-content-between"
 			>
 				<a
-					href="{{ url_for('app_detail', app_id=app.id) }}"
+					href="{{ url_for('app.app_detail', app_id=app.id) }}"
 					class="btn btn-sm btn-outline-primary"
 				>
 					<i class="fas fa-info-circle me-1"></i>Details
 				</a>
 				<a
-					href="{{ url_for('install', app_id=app.id) }}"
+					href="{{ url_for('app.install', app_id=app.id) }}"
 					class="btn btn-sm btn-success"
 				>
 					<i class="fas fa-download me-1"></i>Install
@@ -108,11 +108,11 @@ endblock %} {% block content %}
 		<p class="text-muted mb-4">No applications have been uploaded yet.</p>
 		{% if g.user.role == 'admin' %}
 		<div class="d-flex justify-content-center gap-3">
-			<a href="{{ url_for('upload') }}" class="btn btn-primary">
+			<a href="{{ url_for('app.upload') }}" class="btn btn-primary">
 				<i class="fas fa-upload me-2"></i>Upload App
 			</a>
 			<a
-				href="{{ url_for('github_build') }}"
+				href="{{ url_for('build.github_build') }}"
 				class="btn btn-outline-secondary"
 			>
 				<i class="fab fa-github me-2"></i>Build from GitHub
@@ -134,7 +134,7 @@ endblock %} {% block content %}
 		<p class="text-muted mb-4">
 			Please log in to view apps shared with you.
 		</p>
-		<a href="{{ url_for('login') }}" class="btn btn-primary">
+		<a href="{{ url_for('auth.login') }}" class="btn btn-primary">
 			<i class="fas fa-sign-in-alt me-2"></i>Sign In
 		</a>
 	</div>

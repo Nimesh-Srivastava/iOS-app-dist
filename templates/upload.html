@@ -61,7 +61,7 @@
             aria-labelledby="new-app-tab"
           >
             <form
-              action="{{ url_for('upload') }}"
+              action="{{ url_for('app.upload') }}"
               method="post"
               enctype="multipart/form-data"
             >
@@ -161,7 +161,7 @@
           >
             {% if apps %}
             <form
-              action="{{ url_for('upload') }}"
+              action="{{ url_for('app.upload') }}"
               method="post"
               enctype="multipart/form-data"
             >
@@ -264,7 +264,7 @@
           <h6 class="fw-bold"><i class="fas fa-lightbulb me-2"></i>Pro Tip</h6>
           <p class="mb-2">
             For automated builds, consider using the
-            <a href="{{ url_for('github_build') }}" class="fw-semibold"
+            <a href="{{ url_for('build.github_build') }}" class="fw-semibold"
               >GitHub Build</a
             >
             feature instead.

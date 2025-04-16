@@ -424,7 +424,7 @@
 	<body>
 		<nav class="navbar navbar-expand-lg navbar-dark mb-4">
 			<div class="container">
-				<a class="navbar-brand" href="{{ url_for('index') }}">
+				<a class="navbar-brand" href="{{ url_for('app.index') }}">
 					<i class="fas fa-rocket me-2"></i>AppCenter
 				</a>
 				<button
@@ -439,14 +439,14 @@
 					<ul class="navbar-nav me-auto">
 						{% if g.user and g.user.role == 'admin' %}
 						<!-- <li class="nav-item">
-							<a class="nav-link" href="{{ url_for('upload') }}">
+							<a class="nav-link" href="{{ url_for('app.upload') }}">
 								<i class="fas fa-upload me-1"></i> Upload App
 							</a>
 						</li>
 						<li class="nav-item">
 							<a
 								class="nav-link"
-								href="{{ url_for('github_build') }}"
+								href="{{ url_for('build.github_build') }}"
 							>
 								<i class="fab fa-github me-1"></i> Build from
 								GitHub
@@ -455,7 +455,7 @@
 						<li class="nav-item">
 							<a
 								class="nav-link"
-								href="{{ url_for('manage_users') }}"
+								href="{{ url_for('auth.manage_users') }}"
 							>
 								<i class="fas fa-users me-1"></i> Manage Users
 							</a>
@@ -485,7 +485,7 @@
 								aria-expanded="false"
 							>
 								<img
-									src="{{ url_for('user_profile_picture', username=g.user.username) }}"
+									src="{{ url_for('auth.user_profile_picture', username=g.user.username) }}"
 									alt="Profile"
 									class="rounded-circle me-2 nav-profile-pic"
 									width="28"
@@ -504,7 +504,7 @@
 								<li>
 									<a
 										class="dropdown-item"
-										href="{{ url_for('account_management') }}"
+										href="{{ url_for('auth.account_management') }}"
 									>
 										<i class="fas fa-user-cog me-2"></i>
 										Account Settings
@@ -514,7 +514,7 @@
 								<li>
 									<a
 										class="dropdown-item"
-										href="{{ url_for('logout') }}"
+										href="{{ url_for('auth.logout') }}"
 									>
 										<i class="fas fa-sign-out-alt me-2"></i>
 										Logout
@@ -524,7 +524,7 @@
 						</li>
 						{% else %}
 						<li class="nav-item">
-							<a class="nav-link" href="{{ url_for('login') }}">
+							<a class="nav-link" href="{{ url_for('auth.login') }}">
 								<i class="fas fa-sign-in-alt me-1"></i> Login
 							</a>
 						</li>
