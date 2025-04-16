@@ -174,6 +174,9 @@ def build_log(build_id):
     app_info = None
     if build.get('status') == 'completed' and build.get('app_info'):
         app_info = build.get('app_info')
+    
+    # Add log content to the build object for the template
+    build['log_content'] = build.get('log', 'No log content available')
         
     return render_template('build_log.html', build=build, app_info=app_info)
 
