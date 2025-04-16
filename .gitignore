@@ -17,3 +17,6 @@ __pycache__/
 
 # Log files
 migration.log
+
+# Default files
+.DS_Store

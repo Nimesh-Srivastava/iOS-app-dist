@@ -138,10 +138,11 @@
       >
         <button
           type="submit"
-          class="btn btn-warning me-2"
+          class="btn btn-warning me-2 {% if build.get('fork_cleaned') %}btn-outline-secondary disabled{% endif %}"
+          {% if build.get('fork_cleaned') %}disabled{% endif %}
           onclick="return confirm('Are you sure you want to manually clean up the forked repository? This is only needed if automatic cleanup failed.');"
         >
-          <i class="fas fa-trash-alt me-1"></i>Clean Up Fork
+          <i class="fas fa-trash-alt me-1"></i>{% if build.get('fork_cleaned') %}Fork Cleaned{% else %}Clean Up Fork{% endif %}
         </button>
       </form>
       {% endif %}
@@ -314,16 +315,23 @@
             </div>
           </div>
         </div>
+        <div class="row g-2 text-muted small mt-2">
+          <div class="col">
+            <div><strong>Started By:</strong></div>
+            <div class="text-white">
+              {% if build.user %}
+              <span class="badge bg-primary">{{ build.user }}</span>
+              {% else %}
+              <span class="text-muted">Unknown</span>
+              {% endif %}
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="log-container bg-dark">
         <div class="d-flex justify-content-between align-items-center px-4 py-2 border-bottom border-secondary">
           <h6 class="mb-0 text-light"><i class="fas fa-terminal me-2"></i>Build Log Output</h6>
-          <div>
-            <a href="{{ url_for('build.download_build_log', build_id=build.id) }}" class="btn btn-sm btn-outline-light">
-              <i class="fas fa-download me-1"></i> Download Full Log
-            </a>
-          </div>
         </div>
         <pre
           class="build-log mb-0 px-4 py-3 text-light"
