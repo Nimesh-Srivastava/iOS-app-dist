@@ -2,7 +2,7 @@ import os
 import logging
 import threading
 import time
-from flask import Flask, render_template, session, g
+from flask import Flask, render_template, session, g, redirect, url_for
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -26,6 +26,11 @@ app.register_blueprint(auth_bp)
 app.register_blueprint(app_bp)
 app.register_blueprint(build_bp)
 app.register_blueprint(api_bp)
+
+# Root route redirects to app index
+@app.route('/')
+def index():
+    return redirect(url_for('app.index'))
 
 # Template filter for formatting dates
 @app.template_filter('format_date')
@@ -101,4 +106,4 @@ initialize_app()
 # Main entry point
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=os.environ.get('FLASK_DEBUG', 'false').lower() == 'true') 
+    app.run(host='0.0.0.0', port=port, debug='true', ssl_context=('cert.pem', 'key.pem')) 

@@ -105,12 +105,12 @@ def download_build(build_id):
     
     if not build:
         flash('Build not found')
-        return redirect(url_for('index'))
+        return redirect(url_for('app.index'))
         
     # Check if user has access
     if build.get('user') != session.get('username') and not db.get_user(session.get('username')).get('role') == 'admin':
         flash('You do not have access to this build')
-        return redirect(url_for('index'))
+        return redirect(url_for('app.index'))
         
     # Check if build is completed and has a file
     if build.get('status') != 'completed':
@@ -142,12 +142,12 @@ def build_log(build_id):
     
     if not build:
         flash('Build not found')
-        return redirect(url_for('index'))
+        return redirect(url_for('app.index'))
         
     # Check if user has access
     if build.get('user') != session.get('username') and not db.get_user(session.get('username')).get('role') == 'admin':
         flash('You do not have access to this build')
-        return redirect(url_for('index'))
+        return redirect(url_for('app.index'))
         
     # For API requests, return JSON
     if request.headers.get('Accept') == 'application/json':
@@ -167,12 +167,12 @@ def download_build_log(build_id):
     
     if not build:
         flash('Build not found')
-        return redirect(url_for('index'))
+        return redirect(url_for('app.index'))
         
     # Check if user has access
     if build.get('user') != session.get('username') and not db.get_user(session.get('username')).get('role') == 'admin':
         flash('You do not have access to this build')
-        return redirect(url_for('index'))
+        return redirect(url_for('app.index'))
         
     # Prepare log content
     log_content = build.get('log', 'No log available')
@@ -208,7 +208,7 @@ def stop_build(build_id):
     
     if not build:
         flash('Build not found')
-        return redirect(url_for('index'))
+        return redirect(url_for('app.index'))
         
     # Can only stop builds that are in progress
     if build.get('status') not in ('queued', 'in_progress'):
@@ -238,7 +238,7 @@ def delete_build(build_id):
     
     if not build:
         flash('Build not found')
-        return redirect(url_for('index'))
+        return redirect(url_for('app.index'))
         
     # Delete the build and associated files
     db.delete_build(build_id)
@@ -252,7 +252,7 @@ def delete_build(build_id):
             cleanup_fork(owner, repo)
     
     flash('Build deleted')
-    return redirect(url_for('index'))
+    return redirect(url_for('app.index'))
 
 @build_bp.route('/cleanup_repository/<build_id>', methods=['POST'])
 @admin_required
@@ -261,7 +261,7 @@ def cleanup_repository(build_id):
     
     if not build:
         flash('Build not found')
-        return redirect(url_for('index'))
+        return redirect(url_for('app.index'))
         
     # Check if the build has fork info
     if not build.get('fork_info'):

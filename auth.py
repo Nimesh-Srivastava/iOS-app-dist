@@ -30,7 +30,7 @@ def login():
         if error is None:
             session.clear()
             session['username'] = username
-            next_page = request.args.get('next', url_for('index'))
+            next_page = request.args.get('next', url_for('app.index'))
             return redirect(next_page)
             
         flash(error)
@@ -68,7 +68,7 @@ def register():
                 'role': role
             })
             flash(f'User {username} created with {role} role')
-            return redirect(url_for('admin.manage_users'))
+            return redirect(url_for('auth.manage_users'))
             
         flash(error)
     
@@ -97,7 +97,7 @@ def account_management():
     user = db.get_user(session.get('username'))
     if not user:
         flash('User not found')
-        return redirect(url_for('index'))
+        return redirect(url_for('app.index'))
         
     return render_template('account.html', user=user)
 
@@ -107,7 +107,7 @@ def change_password():
     user = db.get_user(session.get('username'))
     if not user:
         flash('User not found')
-        return redirect(url_for('index'))
+        return redirect(url_for('app.index'))
         
     current_password = request.form.get('current_password')
     new_password = request.form.get('new_password')

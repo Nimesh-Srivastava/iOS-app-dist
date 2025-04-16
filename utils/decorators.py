@@ -22,7 +22,7 @@ def admin_required(f):
         user = db.get_user(session['username'])
         if not user or user['role'] != 'admin':
             flash('Admin privileges required')
-            return redirect(url_for('index'))
+            return redirect(url_for('app.index'))
         
         return f(*args, **kwargs)
     return decorated_function
@@ -37,7 +37,7 @@ def admin_or_developer_required(f):
         user = db.get_user(session['username'])
         if not user or user['role'] not in ['admin', 'developer']:
             flash('Admin or developer privileges required')
-            return redirect(url_for('index'))
+            return redirect(url_for('app.index'))
         
         return f(*args, **kwargs)
     return decorated_function 
