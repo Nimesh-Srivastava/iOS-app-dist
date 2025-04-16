@@ -283,17 +283,31 @@ def manage_sharing(app_id):
         })
     
     if request.method == 'POST':
-        # Process bulk sharing update
-        for username in request.form.getlist('shared_users'):
-            if username not in shared_users:
-                db.share_app(app_id, username)
-                
-        # Remove sharing for users not in the list
-        for username in shared_users:
-            if username not in request.form.getlist('shared_users'):
-                db.unshare_app(app_id, username, current_user)
-                
-        flash('Sharing settings updated')
+        # Check for individual share action
+        if request.form.get('action') == 'share':
+            # Handle individual share
+            username = request.form.get('username')
+            if username:
+                success, message = db.share_app(app_id, username)
+                if success:
+                    flash(message)
+                else:
+                    flash(f'Error sharing app: {message}')
+            else:
+                flash('Username is required')
+        else:
+            # Process bulk sharing update
+            for username in request.form.getlist('shared_users'):
+                if username not in shared_users:
+                    db.share_app(app_id, username)
+                    
+            # Remove sharing for users not in the list
+            for username in shared_users:
+                if username not in request.form.getlist('shared_users'):
+                    db.unshare_app(app_id, username, current_user)
+                    
+            flash('Sharing settings updated')
+            
         return redirect(url_for('app.app_detail', app_id=app_id))
     
     return render_template('manage_sharing.html', app=app, users=filterable_users, shared_users=shared_users)

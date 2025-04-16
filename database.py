@@ -230,7 +230,10 @@ def unshare_app(app_id, username, requesting_user=None):
         return False, "Developers cannot remove their own app access"
 
     result = app_shares_collection.delete_one({'app_id': app_id, 'username': username})
-    return True, "Access removed successfully" if result.deleted_count > 0 else False, "Share not found"
+    if result.deleted_count > 0:
+        return True, "Access removed successfully"
+    else:
+        return False, "Share not found"
 
 def get_app_shares(app_id=None):
     """
