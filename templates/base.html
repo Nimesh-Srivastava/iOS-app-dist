@@ -805,18 +805,16 @@
 		{% if g.user %}
 		<script>
 			function getNotifications() {
-				fetch("/notifications/get?limit=5")
+				fetch("/notifications?limit=5")
 					.then(response => response.json())
 					.then(data => {
-						if (data.success) {
 							updateNotificationCounter(data.unread_count);
 							renderNotifications(data.notifications);
-						}
 					});
 			}
 			
 			function renderNotifications(notifications) {
-				const container = document.getElementById("notification-items");
+				const container = document.getElementById("notificationsContainer");
 				if (!container) return;
 				
 				if (notifications.length === 0) {
@@ -835,7 +833,7 @@
 					
 					item.innerHTML = `
 						<div class="d-flex justify-content-between align-items-center">
-							<span>${notification.message}</span>
+							<span>${notification.content}</span>
 							${!notification.read ? '<span class="badge bg-primary">New</span>' : ''}
 						</div>
 						<div class="small text-muted">${notification.time_ago}</div>
