@@ -258,6 +258,7 @@ def manage_sharing(app_id):
     # Filter out admin users and the app owner (they already have access)
     filterable_users = []
     current_user = session.get('username')
+    current_user_role = db.get_user(current_user).get('role')
     
     for user in users:
         username = user.get('username')
@@ -268,7 +269,8 @@ def manage_sharing(app_id):
         
         # If current user is a developer (not admin),
         # they can only manage sharing for apps they own
-        if (user.get('role') == 'developer' and 
+        if (current_user_role == 'developer' and 
+            user.get('role') == 'developer' and 
             current_user != user.get('username') and
             app.get('owner') != current_user):
             continue
