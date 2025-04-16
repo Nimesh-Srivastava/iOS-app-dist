@@ -334,6 +334,29 @@
 												>
 													<div class="accordion-body p-0">
 														<div class="list-group list-group-flush">
+															<!-- Comment Form - Now at the top -->
+															<div class="list-group-item py-3 px-4 bg-dark">
+																<form action="{{ url_for('app.add_comment', app_id=app.id) }}" method="post">
+																	<input type="hidden" name="version" value="{{ version.version }}">
+																	<div class="mb-3">
+																		<label for="comment{{ loop.index }}" class="form-label small text-light">Add a comment</label>
+																		<textarea 
+																			class="form-control form-control-sm bg-dark text-light border-secondary" 
+																			id="comment{{ loop.index }}" 
+																			name="comment_text" 
+																			rows="2" 
+																			placeholder="Enter your feedback, bug report, or suggestions..."
+																			required
+																		></textarea>
+																	</div>
+																	<div class="d-flex justify-content-end">
+																		<button type="submit" class="btn btn-sm btn-outline-light">
+																			<i class="far fa-paper-plane me-1"></i> Submit
+																		</button>
+																	</div>
+																</form>
+															</div>
+															
 															{% for comment in version_comments %}
 															<div class="list-group-item py-3 ps-4 comment-item">
 																<div class="d-flex justify-content-between mb-2">
@@ -443,29 +466,6 @@
 																<i class="fas fa-info-circle me-2"></i> No comments yet for this version
 															</div>
 															{% endfor %}
-															
-															<!-- Comment Form -->
-															<div class="list-group-item py-3 px-4 bg-dark">
-																<form action="{{ url_for('app.add_comment', app_id=app.id) }}" method="post">
-																	<input type="hidden" name="version" value="{{ version.version }}">
-																	<div class="mb-3">
-																		<label for="comment{{ loop.index }}" class="form-label small text-light">Add a comment</label>
-																		<textarea 
-																			class="form-control form-control-sm bg-dark text-light border-secondary" 
-																			id="comment{{ loop.index }}" 
-																			name="comment_text" 
-																			rows="2" 
-																			placeholder="Enter your feedback, bug report, or suggestions..."
-																			required
-																		></textarea>
-																	</div>
-																	<div class="d-flex justify-content-end">
-																		<button type="submit" class="btn btn-sm btn-outline-light">
-																			<i class="far fa-paper-plane me-1"></i> Submit
-																		</button>
-																	</div>
-																</form>
-															</div>
 														</div>
 													</div>
 												</div>
