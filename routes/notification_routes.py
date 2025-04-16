@@ -188,7 +188,7 @@ def mark_read(notification_id):
 
 @notification_bp.route('/notifications/mark_all_read', methods=['POST'])
 @login_required
-def mark_all_read():
+def mark_all_notifications_read():
     """Mark all notifications as read for the current user"""
     user_id = session.get('user_id')
     
