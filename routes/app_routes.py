@@ -1,0 +1,324 @@
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, send_file, abort, jsonify, make_response
+from werkzeug.utils import secure_filename
+import database as db
+import os
+import io
+import uuid
+from datetime import datetime
+import plistlib
+import logging
+import base64
+
+from utils.decorators import login_required, admin_required, admin_or_developer_required
+from utils.file_utils import allowed_file
+from models import add_app_version
+
+app_bp = Blueprint('app', __name__)
+
+@app_bp.route('/')
+def index():
+    # Get apps based on user access level
+    if 'username' in session:
+        apps = db.get_apps_for_user(session['username'])
+        
+        # For admin users, filter apps by search query
+        if request.args.get('q'):
+            query = request.args.get('q').lower()
+            filtered_apps = []
+            for app in apps:
+                if (query in app.get('name', '').lower() or 
+                    query in app.get('bundle_id', '').lower()):
+                    filtered_apps.append(app)
+            apps = filtered_apps
+            
+        return render_template('index.html', apps=apps, query=request.args.get('q', ''))
+    else:
+        return render_template('login.html')
+
+@app_bp.route('/upload', methods=['GET', 'POST'])
+@admin_or_developer_required
+def upload():
+    if request.method == 'POST':
+        # Check if the post request has the file part
+        if 'file' not in request.files:
+            flash('No file part')
+            return redirect(request.url)
+            
+        file = request.files['file']
+        
+        # If the user does not select a file, browser submits an empty part without filename
+        if file.filename == '':
+            flash('No selected file')
+            return redirect(request.url)
+        
+        if file and allowed_file(file.filename):
+            # Save the file data
+            file_data = file.read()
+            
+            # If this is a new version of an existing app
+            app_id = request.form.get('app_id')
+            version = request.form.get('version')
+            
+            # Store the file and create/update the app
+            try:
+                filename = secure_filename(file.filename)
+                
+                if app_id:  # Update existing app
+                    app = add_app_version(app_id, file_data, filename, version)
+                    flash(f'App {app["name"]} updated to version {app["version"]} ({app["build_number"]})')
+                else:  # New app
+                    # Extract app info and save
+                    from utils.file_utils import extract_app_info
+                    app_info = extract_app_info(file_data, filename)
+                    
+                    # Set owner to current user
+                    app_info['owner'] = session.get('username')
+                    
+                    # Save the file
+                    db.save_file(app_info['file_id'], filename, file_data)
+                    
+                    # Save app to database
+                    db.save_app(app_info)
+                    flash(f'App {app_info["name"]} added')
+                    
+                return redirect(url_for('app.index'))
+            
+            except Exception as e:
+                flash(f'Error processing file: {str(e)}')
+                return redirect(request.url)
+        else:
+            flash('Invalid file type. Only IPA files are allowed.')
+            return redirect(request.url)
+            
+    # Get apps for the select dropdown
+    apps = db.get_apps_for_user(session['username'])
+    return render_template('upload.html', apps=apps)
+
+@app_bp.route('/app/<app_id>')
+def app_detail(app_id):
+    # Check if user has access to this app
+    if 'username' not in session:
+        flash('Please log in to view app details')
+        return redirect(url_for('auth.login'))
+        
+    app = db.get_app(app_id)
+    if not app:
+        flash('App not found')
+        return redirect(url_for('app.index'))
+        
+    # Check if the current user has access to this app
+    if not db.get_user_app_access(session['username'], app_id):
+        flash('You do not have access to this app')
+        return redirect(url_for('app.index'))
+        
+    # Get shared users for this app
+    shared_users = db.get_shared_users(app_id)
+    
+    return render_template('app_detail.html', app=app, shared_users=shared_users)
+
+@app_bp.route('/edit/<app_id>', methods=['GET', 'POST'])
+@admin_required
+def edit_app(app_id):
+    app = db.get_app(app_id)
+    if not app:
+        flash('App not found')
+        return redirect(url_for('app.index'))
+        
+    if request.method == 'POST':
+        # Update app data
+        app['name'] = request.form['name']
+        app['bundle_id'] = request.form['bundle_id']
+        app['version'] = request.form['version']
+        app['build_number'] = request.form['build_number']
+        
+        # Save to database
+        db.save_app(app)
+        flash(f'App {app["name"]} updated')
+        return redirect(url_for('app.app_detail', app_id=app_id))
+        
+    return render_template('edit_app.html', app=app)
+
+@app_bp.route('/download/<app_id>/<filename>')
+def download_app(app_id, filename):
+    # Check if user has access to this app
+    if 'username' not in session:
+        # For direct downloads, redirect to login
+        return redirect(url_for('auth.login', next=request.url))
+        
+    app = db.get_app(app_id)
+    if not app or not db.get_user_app_access(session['username'], app_id):
+        flash('You do not have access to this app')
+        return redirect(url_for('app.index'))
+        
+    # Get the file
+    file_id = app.get('file_id')
+    file_data = db.get_file(file_id)
+    
+    if not file_data:
+        flash('File not found')
+        return redirect(url_for('app.app_detail', app_id=app_id))
+        
+    # Create a response with the file data
+    return send_file(
+        io.BytesIO(file_data['data']),
+        download_name=filename,
+        as_attachment=True,
+        mimetype='application/octet-stream'
+    )
+
+@app_bp.route('/install/<app_id>')
+def install(app_id):
+    # Check if user has access to this app
+    if 'username' not in session:
+        # For direct installs, redirect to login
+        return redirect(url_for('auth.login', next=request.url))
+        
+    app = db.get_app(app_id)
+    if not app or not db.get_user_app_access(session['username'], app_id):
+        flash('You do not have access to this app')
+        return redirect(url_for('app.index'))
+        
+    # Generate manifest URL
+    host = request.host_url.rstrip('/')
+    manifest_url = f"{host}{url_for('app.app_manifest', app_id=app_id)}"
+    
+    return render_template('install.html', app=app, manifest_url=manifest_url)
+
+@app_bp.route('/direct_install/<app_id>')
+def direct_install(app_id):
+    # This is for iOS devices to install directly
+    app = db.get_app(app_id)
+    if not app:
+        abort(404)  # App not found
+        
+    # Generate manifest URL
+    host = request.host_url.rstrip('/')
+    manifest_url = f"{host}{url_for('app.app_manifest', app_id=app_id)}"
+    
+    # Redirect to the itms-services URL for iOS installation
+    return redirect(f"itms-services://?action=download-manifest&url={manifest_url}")
+
+@app_bp.route('/manifest/<app_id>')
+def app_manifest(app_id):
+    app = db.get_app(app_id)
+    if not app:
+        abort(404)
+        
+    host = request.host_url.rstrip('/')
+    download_url = f"{host}{url_for('app.download_app', app_id=app_id, filename=app.get('filename', 'app.ipa'))}"
+    
+    # Create a Property List (plist) for iOS app installation
+    manifest = {
+        'items': [{
+            'assets': [{
+                'kind': 'software-package',
+                'url': download_url
+            }],
+            'metadata': {
+                'bundle-identifier': app.get('bundle_id', 'com.example.app'),
+                'bundle-version': app.get('version', '1.0'),
+                'kind': 'software',
+                'title': app.get('name', 'App')
+            }
+        }]
+    }
+    
+    # Set content type for plist
+    response = make_response(plistlib.dumps(manifest))
+    response.headers['Content-Type'] = 'application/xml'
+    return response
+
+@app_bp.route('/delete/<app_id>', methods=['POST'])
+@admin_required
+def delete_app(app_id):
+    app = db.get_app(app_id)
+    if not app:
+        flash('App not found')
+        return redirect(url_for('app.index'))
+        
+    # Delete app and associated files
+    db.delete_app(app_id)
+    flash(f'App {app.get("name", app_id)} deleted')
+    return redirect(url_for('app.index'))
+
+@app_bp.route('/manage_sharing/<app_id>', methods=['GET', 'POST'])
+@admin_or_developer_required
+def manage_sharing(app_id):
+    app = db.get_app(app_id)
+    if not app:
+        flash('App not found')
+        return redirect(url_for('app.index'))
+        
+    # Get all users for sharing
+    users = db.get_users()
+    
+    # Get currently shared users
+    shared_users = db.get_shared_users(app_id)
+    
+    # Filter out admin users and the app owner (they already have access)
+    filterable_users = []
+    current_user = session.get('username')
+    
+    for user in users:
+        username = user.get('username')
+        
+        # Skip admins
+        if user.get('role') == 'admin':
+            continue
+        
+        # If current user is a developer (not admin),
+        # they can only manage sharing for apps they own
+        if (user.get('role') == 'developer' and 
+            current_user != user.get('username') and
+            app.get('owner') != current_user):
+            continue
+        
+        # Add user to list with sharing status
+        filterable_users.append({
+            'username': username,
+            'role': user.get('role'),
+            'is_shared': username in shared_users
+        })
+    
+    if request.method == 'POST':
+        # Process bulk sharing update
+        for username in request.form.getlist('shared_users'):
+            if username not in shared_users:
+                db.share_app(app_id, username)
+                
+        # Remove sharing for users not in the list
+        for username in shared_users:
+            if username not in request.form.getlist('shared_users'):
+                db.unshare_app(app_id, username, current_user)
+                
+        flash('Sharing settings updated')
+        return redirect(url_for('app.app_detail', app_id=app_id))
+    
+    return render_template('manage_sharing.html', app=app, users=filterable_users)
+
+@app_bp.route('/share_app/<app_id>', methods=['POST'])
+@admin_or_developer_required
+def share_app(app_id):
+    username = request.form.get('username')
+    if not username:
+        flash('Username is required')
+        return redirect(url_for('app.app_detail', app_id=app_id))
+        
+    success, message = db.share_app(app_id, username)
+    if success:
+        flash(message)
+    else:
+        flash(f'Error sharing app: {message}')
+        
+    return redirect(url_for('app.app_detail', app_id=app_id))
+
+@app_bp.route('/unshare_app/<app_id>/<username>', methods=['POST'])
+@admin_or_developer_required
+def unshare_app(app_id, username):
+    success, message = db.unshare_app(app_id, username, session.get('username'))
+    if success:
+        flash(message)
+    else:
+        flash(f'Error removing share: {message}')
+        
+    return redirect(url_for('app.app_detail', app_id=app_id)) 
