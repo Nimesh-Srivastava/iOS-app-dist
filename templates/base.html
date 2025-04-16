@@ -821,6 +821,147 @@
 		<!-- Notifications JavaScript -->
 		{% if g.user %}
 		<script>
+			// Set up Server-Sent Events for real-time notifications
+			let notificationEventSource;
+			
+			document.addEventListener('DOMContentLoaded', function() {
+				setupNotificationSSE();
+			});
+			
+			function setupNotificationSSE() {
+				// Close any existing connection
+				if (notificationEventSource) {
+					notificationEventSource.close();
+				}
+				
+				// Connect to the SSE endpoint
+				notificationEventSource = new EventSource('/api/notifications/stream');
+				
+				// Handle incoming notification events
+				notificationEventSource.addEventListener('notification', function(event) {
+					const notification = JSON.parse(event.data);
+					console.log('Received real-time notification:', notification);
+					
+					// Update the notification counter and display
+					playNotificationSound();
+					showNotificationToast(notification);
+					getNotifications(); // Refresh the notifications dropdown
+				});
+				
+				notificationEventSource.addEventListener('error', function(event) {
+					console.error('SSE connection error:', event);
+					
+					// Try to reconnect after a delay if the connection was closed
+					if (notificationEventSource.readyState === EventSource.CLOSED) {
+						setTimeout(function() {
+							setupNotificationSSE();
+						}, 5000);
+					}
+				});
+			}
+			
+			function playNotificationSound() {
+				// Play a notification sound (optional)
+				try {
+					// Check if the sound file is available
+					fetch('/static/notification.mp3', { method: 'HEAD' })
+						.then(response => {
+							if (response.ok) {
+								const audio = new Audio('/static/notification.mp3');
+								audio.volume = 0.5;
+								audio.play().catch(e => console.log('Audio play prevented by browser policy'));
+							} else {
+								console.log('Notification sound file not found');
+							}
+						})
+						.catch(() => {
+							console.log('Could not check for notification sound file');
+						});
+				} catch (e) {
+					console.log('Could not play notification sound');
+				}
+			}
+			
+			function showNotificationToast(notification) {
+				// Create and show a toast notification
+				const toastContainer = document.getElementById('toast-container');
+				if (!toastContainer) {
+					// Create toast container if it doesn't exist
+					const container = document.createElement('div');
+					container.id = 'toast-container';
+					container.className = 'position-fixed top-0 end-0 p-3';
+					container.style.zIndex = '1080';
+					document.body.appendChild(container);
+				}
+				
+				const toastId = 'notification-toast-' + Date.now();
+				const toast = document.createElement('div');
+				toast.className = 'toast';
+				toast.id = toastId;
+				toast.setAttribute('role', 'alert');
+				toast.setAttribute('aria-live', 'assertive');
+				toast.setAttribute('aria-atomic', 'true');
+				toast.innerHTML = `
+					<div class="toast-header bg-primary text-white">
+						<i class="fas fa-bell me-2"></i>
+						<strong class="me-auto">New Notification</strong>
+						<small>${notification.time_ago || 'just now'}</small>
+						<button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+					</div>
+					<div class="toast-body">
+						${notification.content}
+					</div>
+				`;
+				
+				// Add click handler to navigate to the notification target
+				toast.addEventListener('click', function(e) {
+					if (!e.target.closest('.btn-close')) {
+						handleNotificationNavigation(notification);
+						const bsToast = bootstrap.Toast.getInstance(toast);
+						if (bsToast) {
+							bsToast.hide();
+						}
+					}
+				});
+				
+				document.getElementById('toast-container').appendChild(toast);
+				
+				// Initialize and show the toast
+				const bsToast = new bootstrap.Toast(toast, {
+					autohide: true,
+					delay: 5000
+				});
+				bsToast.show();
+			}
+			
+			function handleNotificationNavigation(notification) {
+				if (notification.type === 'comment' && notification.reference_id) {
+					// For comment notifications
+					fetch(`/api/notifications/${notification.id}/details`)
+						.then(response => response.json())
+						.then(data => {
+							if (data.success && data.app_id) {
+								// Navigate to the app detail page with comment highlight
+								let url = `/app/${data.app_id}`;
+								if (data.version) {
+									url += `/${data.version}`;
+								}
+								url += `?comment=${notification.reference_id}`;
+								window.location.href = url;
+							}
+						});
+				} else if (notification.type === 'access' && notification.reference_id) {
+					// For access notifications
+					window.location.href = `/app/${notification.reference_id}`;
+				} else if (notification.type === 'build' && notification.reference_id) {
+					// For build notifications
+					window.location.href = `/build/${notification.reference_id}/log`;
+				} else {
+					// For other types, redirect to notifications page
+					window.location.href = '/notifications';
+				}
+			}
+			
 			function getNotifications() {
 				fetch("/api/notifications?limit=5")
 					.then(response => response.json())
@@ -836,6 +977,72 @@
 							</div>
 						`;
 					});
+			}
+			
+			function updateNotificationCounter(count) {
+				const badge = document.querySelector('#notificationsDropdown .notification-badge');
+				const markAllReadBtn = document.querySelector('.notification-header button');
+				
+				if (count > 0) {
+					// If badge doesn't exist, create it
+					if (!badge) {
+						const newBadge = document.createElement('span');
+						newBadge.className = 'notification-badge';
+						newBadge.textContent = count;
+						document.querySelector('#notificationsDropdown').appendChild(newBadge);
+					} else {
+						badge.textContent = count;
+					}
+					
+					// Show the "Mark all as read" button
+					if (markAllReadBtn) {
+						markAllReadBtn.style.display = 'block';
+					}
+				} else {
+					// Remove badge if count is 0
+					if (badge) {
+						badge.remove();
+					}
+					
+					// Hide the "Mark all as read" button
+					if (markAllReadBtn) {
+						markAllReadBtn.style.display = 'none';
+					}
+				}
+			}
+			
+			function markAllAsRead() {
+				// Prevent dropdown from closing
+				event.stopPropagation();
+				
+				fetch('/api/notifications/mark_all_read', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+					}
+				})
+				.then(response => response.json())
+				.then(data => {
+					// Mark all notifications as read in the UI
+					const notifications = document.querySelectorAll('.notification-item.unread');
+					notifications.forEach(notification => {
+						notification.classList.remove('unread');
+						const badge = notification.querySelector('.badge.bg-primary');
+						if (badge) badge.remove();
+					});
+					
+					// Update badge count (should be 0)
+					updateNotificationCounter(0);
+					
+					// Hide the mark all read button
+					const markAllReadBtn = document.querySelector('.notification-header button');
+					if (markAllReadBtn) {
+						markAllReadBtn.style.display = 'none';
+					}
+				})
+				.catch(error => {
+					console.error('Error marking all notifications as read:', error);
+				});
 			}
 			
 			function renderNotifications(notifications) {
@@ -925,45 +1132,29 @@
 						
 						updateNotificationCounter(data.unread_count);
 						
-						// Handle navigation based on notification type
-						const type = dataset.type;
-						const referenceId = dataset.referenceId;
-						const referenceType = dataset.referenceType;
+						// Instead of handling navigation differently based on type,
+						// use the more comprehensive navigation function
+						const notificationData = {
+							id: notificationId,
+							type: dataset.type,
+							reference_id: dataset.referenceId,
+							reference_type: dataset.referenceType
+						};
 						
-						// Get more details if needed for navigation
-						if (referenceType === 'comment' && referenceId) {
-							// Prevent dropdown from closing
-							event.stopPropagation();
-							navigateToCommentNotification(notificationId, referenceId);
-						} else if (type === 'access') {
-							// For access notifications, redirect to the app page
-							if (referenceId) {
-								window.location.href = `/app/${referenceId}`;
-							}
+						// Close the dropdown before navigation
+						const dropdown = document.getElementById('notificationsDropdown');
+						const bsDropdown = bootstrap.Dropdown.getInstance(dropdown);
+						if (bsDropdown) {
+							bsDropdown.hide();
 						}
-						// Don't reload page for other notifications
+						
+						// Navigate to the appropriate page
+						handleNotificationNavigation(notificationData);
 					}
 				})
 				.catch(error => {
 					console.error("Error marking notification as read:", error);
 				});
-			}
-			
-			function navigateToCommentNotification(notificationId, commentId) {
-				// Get the app details from the notification
-				fetch(`/api/notifications/${notificationId}/details`)
-					.then(response => response.json())
-					.then(data => {
-						if (data.success && data.app_id) {
-							// Navigate to the app detail page with comment highlight
-							let url = `/app/${data.app_id}`;
-							if (data.version) {
-								url += `/${data.version}`;
-							}
-							url += `?comment=${commentId}`;
-							window.location.href = url;
-						}
-					});
 			}
 			
 			function deleteNotification(notificationId) {
@@ -1000,72 +1191,6 @@
 				})
 				.catch(error => {
 					console.error("Error deleting notification:", error);
-				});
-			}
-			
-			function updateNotificationCounter(count) {
-				const badge = document.querySelector('#notificationsDropdown .notification-badge');
-				const markAllReadBtn = document.querySelector('.notification-header button');
-				
-				if (count > 0) {
-					// If badge doesn't exist, create it
-					if (!badge) {
-						const newBadge = document.createElement('span');
-						newBadge.className = 'notification-badge';
-						newBadge.textContent = count;
-						document.querySelector('#notificationsDropdown').appendChild(newBadge);
-					} else {
-						badge.textContent = count;
-					}
-					
-					// Show the "Mark all as read" button
-					if (markAllReadBtn) {
-						markAllReadBtn.style.display = 'block';
-					}
-				} else {
-					// Remove badge if count is 0
-					if (badge) {
-						badge.remove();
-					}
-					
-					// Hide the "Mark all as read" button
-					if (markAllReadBtn) {
-						markAllReadBtn.style.display = 'none';
-					}
-				}
-			}
-			
-			function markAllAsRead() {
-				// Prevent dropdown from closing
-				event.stopPropagation();
-				
-				fetch('/api/notifications/mark_all_read', {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json',
-					}
-				})
-				.then(response => response.json())
-				.then(data => {
-					// Mark all notifications as read in the UI
-					const notifications = document.querySelectorAll('.notification-item.unread');
-					notifications.forEach(notification => {
-						notification.classList.remove('unread');
-						const badge = notification.querySelector('.badge.bg-primary');
-						if (badge) badge.remove();
-					});
-					
-					// Update badge count (should be 0)
-					updateNotificationCounter(0);
-					
-					// Hide the mark all read button
-					const markAllReadBtn = document.querySelector('.notification-header button');
-					if (markAllReadBtn) {
-						markAllReadBtn.style.display = 'none';
-					}
-				})
-				.catch(error => {
-					console.error('Error marking all notifications as read:', error);
 				});
 			}
 		</script>

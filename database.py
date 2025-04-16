@@ -696,7 +696,17 @@ def create_notification(username, type, content, reference_id=None, reference_ty
         'from_user': from_user
     }
     
+    # Insert the notification into the database
     notifications_collection.insert_one(notification)
+    
+    # Send real-time notification if possible
+    try:
+        # Import here to avoid circular imports
+        from routes.notification_routes import push_real_time_notification
+        push_real_time_notification(username, notification)
+    except Exception as e:
+        print(f"Error sending real-time notification: {e}")
+    
     return notification
 
 def get_user_notifications(username, limit=20, include_read=False):

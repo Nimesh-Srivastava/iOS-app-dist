@@ -1,11 +1,40 @@
-from flask import Blueprint, request, jsonify, session, render_template, flash, redirect, url_for
+from flask import Blueprint, request, jsonify, session, render_template, flash, redirect, url_for, Response, stream_with_context
 import database as db
 from utils.decorators import login_required
 from utils.file_utils import format_datetime
 from bson import ObjectId
 from datetime import datetime
+import json
+import time
+import queue
+import threading
 
 notification_bp = Blueprint('notification', __name__)
+
+# Create a global message queue for each user
+notification_queues = {}
+queue_lock = threading.Lock()
+
+def get_queue_for_user(user_id):
+    """Get or create a message queue for a user"""
+    with queue_lock:
+        if user_id not in notification_queues:
+            notification_queues[user_id] = queue.Queue()
+        return notification_queues[user_id]
+
+def send_notification_to_user(user_id, notification):
+    """Send a notification to a specific user's queue"""
+    if not user_id:
+        return False
+        
+    with queue_lock:
+        if user_id in notification_queues:
+            try:
+                notification_queues[user_id].put_nowait(notification)
+                return True
+            except queue.Full:
+                return False
+    return False
 
 @notification_bp.route('/notifications')
 @login_required
@@ -250,4 +279,87 @@ def get_details(notification_id):
         return jsonify({
             'success': False,
             'error': str(e)
-        }), 400 
+        }), 400
+
+@notification_bp.route('/api/notifications/stream')
+@login_required
+def notification_stream():
+    """
+    Server-Sent Events endpoint for real-time notifications
+    
+    Returns:
+        Response: SSE stream for the current user
+    """
+    def generate():
+        user_id = session.get('user_id')
+        if not user_id:
+            return
+            
+        user_queue = get_queue_for_user(user_id)
+        
+        # Send initial ping to establish connection
+        yield "event: ping\ndata: {}\n\n"
+        
+        try:
+            while True:
+                try:
+                    # Try to get a message from the queue, with a timeout
+                    message = user_queue.get(block=True, timeout=30)
+                    
+                    # Format as SSE event
+                    data_str = json.dumps(message)
+                    yield f"event: notification\ndata: {data_str}\n\n"
+                except queue.Empty:
+                    # No message for 30 seconds, send keepalive
+                    yield "event: ping\ndata: {}\n\n"
+                    
+        except GeneratorExit:
+            # Client disconnected
+            pass
+            
+    return Response(
+        stream_with_context(generate()),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'X-Accel-Buffering': 'no'  # Disable Nginx buffering
+        }
+    )
+
+# Helper function to push notification - call this when creating notifications
+def push_real_time_notification(username, notification):
+    """
+    Push a real-time notification to a user's SSE stream
+    
+    Args:
+        username (str): Username to notify
+        notification (dict): Notification data
+    """
+    # Add any needed processing to the notification
+    if 'timestamp' in notification:
+        # Add time_ago field
+        from datetime import datetime
+        timestamp = datetime.fromisoformat(notification['timestamp'])
+        now = datetime.now()
+        delta = now - timestamp
+        
+        if delta.days > 0:
+            notification['time_ago'] = f"{delta.days} day{'s' if delta.days != 1 else ''} ago"
+        elif delta.seconds >= 3600:
+            hours = delta.seconds // 3600
+            notification['time_ago'] = f"{hours} hour{'s' if hours != 1 else ''} ago"
+        elif delta.seconds >= 60:
+            minutes = delta.seconds // 60
+            notification['time_ago'] = f"{minutes} minute{'s' if minutes != 1 else ''} ago"
+        else:
+            notification['time_ago'] = "just now"
+    
+    # Get user's ID from username
+    from database import db
+    user = db.get_user(username)
+    if not user:
+        return False
+        
+    # Send notification to user's queue
+    return send_notification_to_user(user.get('id'), notification) 
