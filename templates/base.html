@@ -455,10 +455,18 @@
 				padding: 0;
 			}
 
+			.notification-items {
+				max-height: 350px;
+				overflow-y: auto;
+			}
+
 			.notification-item {
 				border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 				padding: 0.75rem 1rem;
 				transition: background-color 0.2s;
+				white-space: normal;
+				word-wrap: break-word;
+				cursor: pointer;
 			}
 
 			.notification-item:hover {
@@ -508,8 +516,16 @@
 			}
 
 			.notification-content {
-				display: flex;
-				align-items: flex-start;
+				width: 85%;
+			}
+
+			.notification-text {
+				word-break: break-word;
+			}
+
+			.notification-time {
+				font-size: 0.7rem;
+				color: var(--text-muted);
 			}
 
 			.notification-footer {
@@ -581,8 +597,9 @@
 								id="notificationsDropdown"
 								role="button"
 								data-bs-toggle="dropdown"
+								data-bs-auto-close="outside"
 								aria-expanded="false"
-								onclick="getNotifications()"
+								onclick="getNotifications(); return false;"
 							>
 								<i class="fas fa-bell"></i>
 								{% if g.unread_notifications > 0 %}
@@ -825,62 +842,72 @@
 				const container = document.getElementById("notificationsContainer");
 				if (!container) return;
 				
-				if (notifications.length === 0) {
-					container.innerHTML = `<div class="dropdown-item text-muted">No notifications</div>`;
-					return;
-				}
-				
+				// Clear existing content
 				container.innerHTML = "";
-				notifications.forEach(notification => {
-					const item = document.createElement("div");
-					item.className = `dropdown-item notification-item ${notification.read ? "" : "unread"}`;
-					item.dataset.id = notification.id;
-					item.dataset.type = notification.type;
-					item.dataset.referenceId = notification.reference_id || '';
-					item.dataset.referenceType = notification.reference_type || '';
+				
+				if (notifications.length === 0) {
+					container.innerHTML = `<div class="dropdown-item text-muted p-3 text-center">No notifications</div>`;
+				} else {
+					// Create a wrapper for notification items
+					const notificationsList = document.createElement("div");
+					notificationsList.className = "notification-items";
 					
-					item.innerHTML = `
-						<div class="d-flex justify-content-between align-items-center">
-							<span>${notification.content}</span>
-							${!notification.read ? '<span class="badge bg-primary">New</span>' : ''}
-						</div>
-						<div class="small text-muted">${notification.time_ago}</div>
-						<div class="d-flex justify-content-between mt-1">
-							<button class="btn btn-sm btn-outline-danger delete-notification-btn">
-								<i class="fas fa-trash-alt"></i>
-							</button>
-							<span class="text-muted small">${notification.formatted_date}</span>
-						</div>
-					`;
-					
-					// Add click handler for the item
-					item.addEventListener('click', function(e) {
-						// Don't handle the click if they clicked the delete button
-						if (e.target.closest('.delete-notification-btn')) {
-							e.stopPropagation();
-							return;
+					notifications.forEach(notification => {
+						const item = document.createElement("div");
+						item.className = `notification-item ${notification.read ? "" : "unread"}`;
+						item.dataset.id = notification.id;
+						item.dataset.type = notification.type;
+						item.dataset.referenceId = notification.reference_id || '';
+						item.dataset.referenceType = notification.reference_type || '';
+						
+						item.innerHTML = `
+							<div class="d-flex justify-content-between align-items-start">
+								<div class="notification-content flex-grow-1">
+									<div class="notification-text">${notification.content}</div>
+									<div class="small text-muted mt-1">${notification.time_ago}</div>
+								</div>
+								${!notification.read ? '<span class="badge bg-primary ms-2">New</span>' : ''}
+							</div>
+							<div class="d-flex justify-content-between mt-2">
+								<button class="btn btn-sm btn-outline-danger delete-notification-btn">
+									<i class="fas fa-trash-alt"></i>
+								</button>
+								<span class="text-muted small">${notification.formatted_date || ''}</span>
+							</div>
+						`;
+						
+						// Add click handler for the item
+						item.addEventListener('click', function(e) {
+							// Don't handle the click if they clicked the delete button
+							if (e.target.closest('.delete-notification-btn')) {
+								e.stopPropagation();
+								return;
+							}
+							
+							handleNotificationClick(notification.id, this.dataset);
+						});
+						
+						// Add delete button handler
+						const deleteBtn = item.querySelector('.delete-notification-btn');
+						if (deleteBtn) {
+							deleteBtn.addEventListener('click', function(e) {
+								e.stopPropagation();
+								deleteNotification(notification.id);
+							});
 						}
 						
-						handleNotificationClick(notification.id, this.dataset);
+						notificationsList.appendChild(item);
 					});
 					
-					// Add delete button handler
-					const deleteBtn = item.querySelector('.delete-notification-btn');
-					if (deleteBtn) {
-						deleteBtn.addEventListener('click', function(e) {
-							e.stopPropagation();
-							deleteNotification(notification.id);
-						});
-					}
-					
-					container.appendChild(item);
-				});
+					// Add the notifications list to the container
+					container.appendChild(notificationsList);
+				}
 				
-				// Add "View all" link at the bottom
-				const viewAllLink = document.createElement("div");
-				viewAllLink.className = "dropdown-item text-center border-top mt-2 pt-2";
-				viewAllLink.innerHTML = `<a href="{{ url_for('notification.all_notifications') }}" class="text-decoration-none small">View all</a>`;
-				container.appendChild(viewAllLink);
+				// Add "View all" link at the bottom (always shown, even if no notifications)
+				const viewAllFooter = document.createElement("div");
+				viewAllFooter.className = "notification-footer";
+				viewAllFooter.innerHTML = `<a href="{{ url_for('notification.all_notifications') }}" class="text-decoration-none small">View all</a>`;
+				container.appendChild(viewAllFooter);
 			}
 			
 			function handleNotificationClick(notificationId, dataset) {
@@ -894,6 +921,14 @@
 				.then(response => response.json())
 				.then(data => {
 					if (data.success) {
+						// Update UI to mark this notification as read
+						const notificationElement = document.querySelector(`.notification-item[data-id="${notificationId}"]`);
+						if (notificationElement) {
+							notificationElement.classList.remove('unread');
+							const badge = notificationElement.querySelector('.badge.bg-primary');
+							if (badge) badge.remove();
+						}
+						
 						updateNotificationCounter(data.unread_count);
 						
 						// Handle navigation based on notification type
@@ -903,17 +938,20 @@
 						
 						// Get more details if needed for navigation
 						if (referenceType === 'comment' && referenceId) {
+							// Prevent dropdown from closing
+							event.stopPropagation();
 							navigateToCommentNotification(notificationId, referenceId);
 						} else if (type === 'access') {
 							// For access notifications, redirect to the app page
 							if (referenceId) {
 								window.location.href = `/app/${referenceId}`;
 							}
-						} else {
-							// For other notifications, simply reload to refresh the current page
-							window.location.reload();
 						}
+						// Don't reload page for other notifications
 					}
+				})
+				.catch(error => {
+					console.error("Error marking notification as read:", error);
 				});
 			}
 			
@@ -935,6 +973,9 @@
 			}
 			
 			function deleteNotification(notificationId) {
+				// Prevent event propagation to avoid closing dropdown
+				event.stopPropagation();
+				
 				fetch(`/api/notifications/delete/${notificationId}`, {
 					method: 'POST',
 					headers: {
@@ -944,9 +985,27 @@
 				.then(response => response.json())
 				.then(data => {
 					if (data.success) {
+						// Remove the notification from UI directly
+						const notificationElement = document.querySelector(`.notification-item[data-id="${notificationId}"]`);
+						if (notificationElement) {
+							notificationElement.remove();
+						}
+						
 						updateNotificationCounter(data.unread_count);
-						getNotifications(); // Refresh the notification list
+						
+						// If no notifications left, show "No notifications" message
+						const notificationItems = document.querySelectorAll('.notification-items .notification-item');
+						if (notificationItems.length === 0) {
+							const container = document.getElementById("notificationsContainer");
+							const itemsContainer = container.querySelector('.notification-items');
+							if (itemsContainer) {
+								itemsContainer.innerHTML = `<div class="dropdown-item text-muted p-3 text-center">No notifications</div>`;
+							}
+						}
 					}
+				})
+				.catch(error => {
+					console.error("Error deleting notification:", error);
 				});
 			}
 			
