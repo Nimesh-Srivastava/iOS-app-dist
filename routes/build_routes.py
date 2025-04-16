@@ -93,10 +93,27 @@ def github_build():
                         'branch': build.get('branch')
                     })
     
+    # Get all builds for display
+    all_builds = db.get_builds()
+    # Filter builds based on user access
+    user_role = db.get_user(session.get('username')).get('role')
+    filtered_builds = []
+    for build in all_builds:
+        # Admin can see all builds
+        if user_role == 'admin':
+            filtered_builds.append(build)
+        # Users can see their own builds
+        elif build.get('user') == session.get('username'):
+            filtered_builds.append(build)
+    
+    # Sort builds by start time descending (newest first)
+    filtered_builds.sort(key=lambda x: x.get('start_time', ''), reverse=True)
+    
     return render_template('github_build.html', 
                           branches=branches, 
                           repo_url=repo_url,
-                          user_builds=user_builds)
+                          user_builds=user_builds,
+                          builds=filtered_builds)
 
 @build_bp.route('/download_build/<build_id>')
 @login_required
