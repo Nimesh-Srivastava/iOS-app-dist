@@ -221,70 +221,114 @@
 				</div>
 			</div>
 
-			<!-- Installation Instructions -->
-			<div class="card border-0 shadow-sm">
-				<div class="card-header">
-					<h5 class="mb-0">
-						<i class="fas fa-info-circle me-2"></i> Installation
-						Instructions
-					</h5>
-				</div>
-				<div class="card-body p-4">
-					<div class="mb-4">
-						<h6 class="fw-bold d-flex align-items-center">
-							<i class="fab fa-apple me-2 text-muted"></i> iOS
-							Devices (iPhone/iPad)
-						</h6>
-						<ol class="ps-3 mt-2">
-							<li class="mb-2">
-								Open this page in <strong>Safari</strong> on
-								your iOS device
-							</li>
-							<li class="mb-2">
-								Tap the <strong>"Install App"</strong> button
-								above
-							</li>
-							<li class="mb-2">
-								When prompted, tap <strong>"Install"</strong> to
-								confirm
-							</li>
-							<li class="mb-2">
-								Go to
-								<strong
-									>Settings > General > Device
-									Management</strong
-								>
-							</li>
-							<li class="mb-2">
-								Trust the developer profile for this app
-							</li>
-							<li>Launch the app from your home screen</li>
-						</ol>
-					</div>
+			<!-- Installation Help Button -->
+			<div class="d-grid gap-2 mb-4">
+				<button
+					type="button"
+					class="btn btn-outline-info"
+					data-bs-toggle="modal"
+					data-bs-target="#installationInstructionsModal"
+				>
+					<i class="fas fa-info-circle me-2"></i> Installation Instructions
+				</button>
+			</div>
+		</div>
+	</div>
+</div>
 
-					<hr />
-
-					<div>
-						<h6 class="fw-bold d-flex align-items-center">
-							<i class="fas fa-laptop me-2 text-muted"></i> Manual
-							Installation
-						</h6>
-						<ol class="ps-3 mt-2">
-							<li class="mb-2">
-								Click <strong>"Direct Download"</strong> to
-								download the IPA file
-							</li>
-							<li class="mb-2">
-								Use iTunes, Apple Configurator, or a similar
-								tool to install the app
-							</li>
-							<li>
-								Follow the instructions provided by your chosen
-								installation tool
-							</li>
-						</ol>
+<!-- Installation Instructions Modal -->
+<div
+	class="modal fade"
+	id="installationInstructionsModal"
+	tabindex="-1"
+	aria-labelledby="installationModalLabel"
+	aria-hidden="true"
+>
+	<div class="modal-dialog modal-lg">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title" id="installationModalLabel">
+					<i class="fas fa-download me-2"></i> Installation Instructions
+				</h5>
+				<button
+					type="button"
+					class="btn-close"
+					data-bs-dismiss="modal"
+					aria-label="Close"
+				></button>
+			</div>
+			<div class="modal-body">
+				<div class="row">
+					<div class="col-md-6">
+						<div class="card mb-3">
+							<div class="card-header bg-primary text-white">
+								<i class="fab fa-apple me-2"></i> iOS Devices (iPhone/iPad)
+							</div>
+							<div class="card-body">
+								<ol class="ps-3 mt-2">
+									<li class="mb-2">
+										Open this page in <strong>Safari</strong> on
+										your iOS device
+									</li>
+									<li class="mb-2">
+										Tap the <strong>"Install App"</strong> button
+										above
+									</li>
+									<li class="mb-2">
+										When prompted, tap <strong>"Install"</strong> to
+										confirm
+									</li>
+									<li class="mb-2">
+										Go to
+										<strong>Settings > General > Device Management</strong>
+									</li>
+									<li class="mb-2">
+										Trust the developer profile for this app
+									</li>
+									<li>Launch the app from your home screen</li>
+								</ol>
+							</div>
+						</div>
+					</div>
+					<div class="col-md-6">
+						<div class="card mb-3">
+							<div class="card-header bg-secondary text-white">
+								<i class="fas fa-laptop me-2"></i> Manual Installation
+							</div>
+							<div class="card-body">
+								<ol class="ps-3 mt-2">
+									<li class="mb-2">
+										Click <strong>"Direct Download"</strong> to
+										download the IPA file
+									</li>
+									<li class="mb-2">
+										Use iTunes, Apple Configurator, or a similar
+										tool to install the app
+									</li>
+									<li>
+										Follow the instructions provided by your chosen
+										installation tool
+									</li>
+								</ol>
+							</div>
+						</div>
 					</div>
 				</div>
+				
+				<div class="alert alert-info mt-3">
+					<i class="fas fa-lightbulb me-2"></i> <strong>Tip:</strong> For enterprise distribution, 
+					users need to trust the enterprise developer certificate on their device before 
+					they can install and run the app.
+				</div>
+			</div>
+			<div class="modal-footer">
+				<button
+					type="button"
+					class="btn btn-secondary"
+					data-bs-dismiss="modal"
+				>
+					Close
+				</button>
 			</div>
 		</div>
 	</div>
