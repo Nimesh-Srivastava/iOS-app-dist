@@ -362,36 +362,42 @@ build.status == 'in_progress' or build.status == 'queued' %}
     const logContainer = document.querySelector('.build-log');
     if (!logContainer) return;
     
-    // Add line numbers to log
-    const lines = logContainer.innerHTML.split('\n');
-    let numberedLines = [];
-    
-    for (let i = 0; i < lines.length; i++) {
-      // Skip empty lines
-      if (lines[i].trim() === '') {
-        numberedLines.push('');
-        continue;
+    try {
+      // Add line numbers to log
+      const logContent = logContainer.innerHTML;
+      const lines = logContent.split('\n');
+      let numberedLines = [];
+      
+      for (let i = 0; i < lines.length; i++) {
+        // Skip empty lines
+        if (lines[i].trim() === '') {
+          numberedLines.push('');
+          continue;
+        }
+        
+        // Highlight timestamps (common formats like [HH:MM:SS], YYYY-MM-DD, etc.)
+        let line = lines[i].replace(
+          /(\[\d{2}:\d{2}:\d{2}\]|\d{4}-\d{2}-\d{2}|\d{2}:\d{2}:\d{2})/g,
+          '<span style="color: #54a0ff;">$1</span>'
+        );
+        
+        // Add color to command/tool names
+        line = line.replace(
+          /\b(git|xcodebuild|pod|npm|yarn|bash|sh|curl|wget)\b/g,
+          '<span style="color: #ff9f43;">$1</span>'
+        );
+        
+        // Add subtle line numbers
+        numberedLines.push(
+          `<span style="display: inline-block; width: 40px; color: #666; user-select: none; text-align: right; margin-right: 10px;">${i+1}</span>${line}`
+        );
       }
       
-      // Highlight timestamps (common formats like [HH:MM:SS], YYYY-MM-DD, etc.)
-      let line = lines[i].replace(
-        /(\[\d{2}:\d{2}:\d{2}\]|\d{4}-\d{2}-\d{2}|\d{2}:\d{2}:\d{2})/g,
-        '<span style="color: #54a0ff;">$1</span>'
-      );
-      
-      // Add color to command/tool names
-      line = line.replace(
-        /\b(git|xcodebuild|pod|npm|yarn|bash|sh|curl|wget)\b/g,
-        '<span style="color: #ff9f43;">$1</span>'
-      );
-      
-      // Add subtle line numbers
-      numberedLines.push(
-        `<span style="display: inline-block; width: 40px; color: #666; user-select: none; text-align: right; margin-right: 10px;">${i+1}</span>${line}`
-      );
+      logContainer.innerHTML = numberedLines.join('\n');
+    } catch (e) {
+      console.error('Error processing log content:', e);
+      // If we hit an error, just leave the log as is
     }
-    
-    logContainer.innerHTML = numberedLines.join('\n');
   });
 </script>
 {% endblock %}

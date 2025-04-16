@@ -181,6 +181,13 @@ def build_log(build_id):
     # Process log content to add HTML classes for better formatting
     if log_content:
         processed_lines = []
+        
+        # Check if log_content is a list or a string
+        if isinstance(log_content, list):
+            # If it's a list, join it into a string with newlines
+            log_content = '\n'.join([str(line) for line in log_content])
+            
+        # Now we can safely split the string
         for line in log_content.split('\n'):
             line = line.rstrip()
             # Skip empty lines
