@@ -216,17 +216,17 @@ try:
         logging.error(f"IPA file not found at {ipa_path}")
         sys.exit(1)
         
-    # Read IPA file
-    with open(ipa_path, 'rb') as f:
-        ipa_data = f.read()
-        
-    # Generate default icon
-    try:
-        from app import load_default_icon
-        default_icon = load_default_icon()
-    except:
-        # Fallback icon
-        default_icon = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+    # Get the build information from our database to properly update it
+    build = db.get_build(build_id)
+    release_notes = build.get('release_notes', 'Built from GitHub Actions.') if build else 'Built from GitHub Actions.'
+    
+    logging.info(f"Using build ID: {build_id}")
+    
+    # Read the IPA file
+    ipa_data = open(ipa_path, 'rb').read()
+    
+    # Default icon if needed
+    default_icon = "/static/img/default-app-icon.png"
         
     # Create app entry
     app_info = {
@@ -239,7 +239,8 @@ try:
         'ipa_data': base64.b64encode(ipa_data).decode('utf-8'),
         'creation_date': datetime.now().isoformat(),
         'source': f"GitHub Actions: {os.environ.get('GITHUB_REPOSITORY', 'unknown')}",
-        'build_id': build_id
+        'build_id': build_id,
+        'release_notes': release_notes
     }
     
     # Save to database

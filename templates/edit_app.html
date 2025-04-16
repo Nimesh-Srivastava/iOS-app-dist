@@ -90,6 +90,42 @@ block content %}
 									disabled
 								/>
 							</div>
+							<div class="mb-3">
+								<label for="bundle_id" class="form-label">Bundle ID</label>
+								<input
+									type="text"
+									class="form-control"
+									id="bundle_id"
+									name="bundle_id"
+									value="{{ app.bundle_id }}"
+									required
+								/>
+							</div>
+							<div class="mb-3">
+								<label for="build_number" class="form-label">Build Number</label>
+								<input
+									type="text"
+									class="form-control"
+									id="build_number"
+									name="build_number"
+									value="{{ app.build_number }}"
+									required
+								/>
+							</div>
+						</div>
+					</div>
+
+					<div class="mb-3">
+						<label for="release_notes" class="form-label">Release Notes</label>
+						<textarea
+							class="form-control"
+							id="release_notes"
+							name="release_notes"
+							rows="4"
+							required
+						>{{ app.release_notes or '' }}</textarea>
+						<div class="form-text">
+							Describe what's new in this version
 						</div>
 					</div>
 

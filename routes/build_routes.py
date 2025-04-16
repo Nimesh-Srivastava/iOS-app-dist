@@ -23,6 +23,7 @@ def github_build():
         branch = request.form.get('branch', 'main').strip()
         app_name = request.form.get('app_name', '').strip()
         build_config = request.form.get('build_config', 'Release').strip()
+        release_notes = request.form.get('release_notes', '').strip()
         
         # Basic validation
         if not repo_url:
@@ -31,6 +32,10 @@ def github_build():
             
         if not app_name:
             flash('App name is required')
+            return redirect(url_for('build.github_build'))
+            
+        if not release_notes:
+            flash('Release notes are required')
             return redirect(url_for('build.github_build'))
             
         # Verify GitHub token
@@ -49,6 +54,7 @@ def github_build():
             'repo_url': repo_url,
             'branch': branch,
             'build_config': build_config,
+            'release_notes': release_notes,
             'status': 'queued',
             'user': session.get('username'),
             'start_time': datetime.now().isoformat(),
@@ -61,7 +67,7 @@ def github_build():
         # Start the build process in the background
         threading.Thread(
             target=build_ios_app_from_github,
-            args=(build_id, repo_url, branch, app_name, build_config)
+            args=(build_id, repo_url, branch, app_name, build_config, None, None, release_notes)
         ).start()
         
         flash(f'Build started for {app_name}')

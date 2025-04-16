@@ -5,7 +5,7 @@ import logging
 from utils.file_utils import extract_app_info, extract_minimal_app_info
 from datetime import datetime
 
-def add_app_version(app_id, file_data, filename, version=None):
+def add_app_version(app_id, file_data, filename, version=None, release_notes=None):
     """
     Add a new version of an app to the database
     
@@ -14,6 +14,7 @@ def add_app_version(app_id, file_data, filename, version=None):
         file_data (bytes): The IPA file data
         filename (str): The filename of the IPA file
         version (str, optional): The version string
+        release_notes (str, optional): Release notes for this version
         
     Returns:
         dict: The app data
@@ -35,7 +36,8 @@ def add_app_version(app_id, file_data, filename, version=None):
                 'build_number': app.get('build_number'),
                 'filename': app.get('filename'),
                 'file_id': app.get('file_id'),
-                'upload_date': app.get('upload_date')
+                'upload_date': app.get('upload_date'),
+                'release_notes': app.get('release_notes')
             }
             
             # Only add if it doesn't exist already
@@ -51,6 +53,7 @@ def add_app_version(app_id, file_data, filename, version=None):
         app['file_id'] = app_info['file_id']
         app['upload_date'] = app_info['upload_date']
         app['versions'] = old_versions
+        app['release_notes'] = release_notes
         
         # Save the file with the new file_id
         db.save_file(app_info['file_id'], filename, file_data)
@@ -64,6 +67,7 @@ def add_app_version(app_id, file_data, filename, version=None):
         if version:
             new_app['version'] = version
         new_app['versions'] = []
+        new_app['release_notes'] = release_notes
         
         # Save the file
         db.save_file(app_info['file_id'], filename, file_data)
@@ -108,7 +112,7 @@ def update_build_status(build_id, status, log=None, end_time=None):
     return True
 
 def build_ios_app_from_github(build_id, repo_url, branch, app_name, build_config='Release', 
-                        certificate_path=None, provisioning_profile=None):
+                        certificate_path=None, provisioning_profile=None, release_notes=None):
     """
     Build an iOS app from a GitHub repository
     
@@ -120,6 +124,7 @@ def build_ios_app_from_github(build_id, repo_url, branch, app_name, build_config
         build_config (str): The build configuration (Debug/Release)
         certificate_path (str, optional): Path to the signing certificate
         provisioning_profile (str, optional): Path to the provisioning profile
+        release_notes (str, optional): Release notes for this version
         
     Returns:
         bool: True if build started successfully, False otherwise
@@ -139,12 +144,14 @@ def build_ios_app_from_github(build_id, repo_url, branch, app_name, build_config
         update_build_status(build_id, 'failed', message)
         return False
     
-    # Update build with fork info
+    # Update build with fork info and release notes
     build = db.get_build(build_id)
     if build:
         build['fork_info'] = fork_info
         build['status'] = 'in_progress'
         build['log'] = message
+        if release_notes:
+            build['release_notes'] = release_notes
         db.save_build(build)
     
     # Start a thread to monitor the workflow
