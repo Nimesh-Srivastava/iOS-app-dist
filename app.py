@@ -13,6 +13,7 @@ from auth import auth_bp
 from routes.app_routes import app_bp
 from routes.build_routes import build_bp
 from routes.api_routes import api_bp
+from routes.notification_routes import notification_bp
 from models import check_abandoned_builds
 import database as db
 
@@ -26,6 +27,7 @@ app.register_blueprint(auth_bp)
 app.register_blueprint(app_bp)
 app.register_blueprint(build_bp)
 app.register_blueprint(api_bp)
+app.register_blueprint(notification_bp, url_prefix='/api')
 
 # Root route redirects to app index
 @app.route('/')
@@ -64,8 +66,10 @@ def load_logged_in_user():
     username = session.get('username')
     if username is None:
         g.user = None
+        g.unread_notifications = 0
     else:
         g.user = db.get_user(username)
+        g.unread_notifications = db.get_unread_notification_count(username)
 
 # Error handlers
 @app.errorhandler(404)

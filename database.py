@@ -23,6 +23,7 @@ builds_collection = db['builds']
 app_shares_collection = db['app_shares']  # New collection for tracking app sharing
 files_collection = db['files']  # New collection for storing IPA files
 comments_collection = db['comments']  # New collection for app version comments
+notifications_collection = db['notifications']  # New collection for user notifications
 
 def initialize_db():
     """Initialize database with default data if empty"""
@@ -33,6 +34,8 @@ def initialize_db():
     app_shares_collection.create_index([('app_id', 1), ('username', 1)], unique=True)  # Composite index
     files_collection.create_index('file_id', unique=True)  # Index for file storage
     comments_collection.create_index([('app_id', 1), ('version', 1)])  # Index for comments by app version
+    notifications_collection.create_index('username')  # Index for notifications by username
+    notifications_collection.create_index([('username', 1), ('read', 1)])  # Index for unread notifications
     
     # Create default admin user if no users exist
     if users_collection.count_documents({}) == 0:
@@ -122,6 +125,9 @@ def delete_user(username):
     
     # Remove any app shares for this user
     app_shares_collection.delete_many({'username': username})
+    
+    # Delete all notifications for this user
+    delete_user_notifications(username)
 
 # App operations
 def get_apps():
@@ -660,4 +666,125 @@ def delete_app_comments(app_id):
         int: Number of comments deleted
     """
     result = comments_collection.delete_many({'app_id': app_id})
+    return result.deleted_count
+
+# Notification operations
+def create_notification(username, type, content, reference_id=None, reference_type=None, from_user=None):
+    """
+    Create a notification for a user
+    
+    Args:
+        username (str): The username to notify
+        type (str): Notification type (mention, reply, access)
+        content (str): Notification content
+        reference_id (str, optional): ID of the referenced object (comment, app, etc.)
+        reference_type (str, optional): Type of the referenced object
+        from_user (str, optional): Username of the user who triggered the notification
+        
+    Returns:
+        dict: The notification data
+    """
+    notification = {
+        'id': str(uuid.uuid4()),
+        'username': username,
+        'type': type,  # mention, reply, access
+        'content': content,
+        'timestamp': datetime.now().isoformat(),
+        'read': False,
+        'reference_id': reference_id,
+        'reference_type': reference_type,
+        'from_user': from_user
+    }
+    
+    notifications_collection.insert_one(notification)
+    return notification
+
+def get_user_notifications(username, limit=20, include_read=False):
+    """
+    Get notifications for a user
+    
+    Args:
+        username (str): The username to get notifications for
+        limit (int): Maximum number of notifications to return
+        include_read (bool): Whether to include read notifications
+        
+    Returns:
+        list: List of notifications
+    """
+    query = {'username': username}
+    if not include_read:
+        query['read'] = False
+        
+    notifications = list(notifications_collection.find(
+        query, 
+        {'_id': 0}
+    ).sort('timestamp', -1).limit(limit))
+    
+    return notifications
+
+def mark_notification_read(notification_id, username=None):
+    """
+    Mark a notification as read
+    
+    Args:
+        notification_id (str): The notification ID
+        username (str, optional): Username for permission check
+        
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    query = {'id': notification_id}
+    if username:
+        query['username'] = username
+        
+    result = notifications_collection.update_one(
+        query,
+        {'$set': {'read': True}}
+    )
+    
+    return result.modified_count > 0
+
+def mark_all_notifications_read(username):
+    """
+    Mark all notifications as read for a user
+    
+    Args:
+        username (str): The username
+        
+    Returns:
+        int: Number of notifications marked as read
+    """
+    result = notifications_collection.update_many(
+        {'username': username, 'read': False},
+        {'$set': {'read': True}}
+    )
+    
+    return result.modified_count
+
+def get_unread_notification_count(username):
+    """
+    Get count of unread notifications for a user
+    
+    Args:
+        username (str): The username
+        
+    Returns:
+        int: Count of unread notifications
+    """
+    return notifications_collection.count_documents({
+        'username': username,
+        'read': False
+    })
+
+def delete_user_notifications(username):
+    """
+    Delete all notifications for a user
+    
+    Args:
+        username (str): The username
+        
+    Returns:
+        int: Number of notifications deleted
+    """
+    result = notifications_collection.delete_many({'username': username})
     return result.deleted_count

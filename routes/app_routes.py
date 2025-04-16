@@ -8,6 +8,7 @@ from datetime import datetime
 import plistlib
 import logging
 import base64
+import re
 
 from utils.decorators import login_required, admin_required, admin_or_developer_required
 from utils.file_utils import allowed_file, format_datetime
@@ -351,6 +352,20 @@ def share_app(app_id):
     success, message = db.share_app(app_id, username)
     if success:
         flash(message)
+        
+        # Get app details and current user
+        app = db.get_app(app_id)
+        current_username = session.get('username')
+        
+        # Create notification for the user who was granted access
+        db.create_notification(
+            username=username,
+            type='access',
+            content=f"{current_username} gave you access to {app.get('name')}",
+            reference_id=app_id,
+            reference_type='app',
+            from_user=current_username
+        )
     else:
         flash(f'Error sharing app: {message}')
         
@@ -359,13 +374,42 @@ def share_app(app_id):
 @app_bp.route('/unshare_app/<app_id>/<username>', methods=['POST'])
 @admin_or_developer_required
 def unshare_app(app_id, username):
-    success, message = db.unshare_app(app_id, username, session.get('username'))
+    current_username = session.get('username')
+    success, message = db.unshare_app(app_id, username, current_username)
+    
     if success:
         flash(message)
+        
+        # Get app details
+        app = db.get_app(app_id)
+        
+        # Create notification for the user who lost access
+        db.create_notification(
+            username=username,
+            type='access',
+            content=f"{current_username} removed your access to {app.get('name')}",
+            reference_id=app_id,
+            reference_type='app',
+            from_user=current_username
+        )
     else:
         flash(f'Error removing share: {message}')
         
     return redirect(url_for('app.app_detail', app_id=app_id))
+
+def extract_mentions(text):
+    """
+    Extract mentions from text
+    
+    Args:
+        text (str): The text to search for mentions
+        
+    Returns:
+        list: List of usernames mentioned
+    """
+    # Match @username pattern
+    mentions = re.findall(r'@(\w+)', text)
+    return mentions
 
 @app_bp.route('/add_comment/<app_id>', methods=['POST'])
 @login_required
@@ -384,10 +428,49 @@ def add_comment(app_id):
         flash('You do not have access to this app')
         return redirect(url_for('app.index'))
     
+    # Get the current user
+    current_username = session.get('username')
+    current_user = db.get_user(current_username)
+    
     # Add the comment
-    result = db.add_comment(app_id, version, session.get('username'), text, parent_id)
+    result = db.add_comment(app_id, version, current_username, text, parent_id)
     
     if result.get('success'):
+        comment = result.get('comment')
+        
+        # Handle notifications for replies
+        if parent_id:
+            # This is a reply, notify the parent comment author
+            parent_comment = db.comments_collection.find_one({'id': parent_id}, {'_id': 0})
+            if parent_comment and parent_comment.get('username') != current_username:
+                parent_author = parent_comment.get('username')
+                
+                # Create notification for the parent comment author
+                db.create_notification(
+                    username=parent_author,
+                    type='reply',
+                    content=f"{current_username} replied to your comment on {app.get('name')} v{version}",
+                    reference_id=comment.get('id'),
+                    reference_type='comment',
+                    from_user=current_username
+                )
+        
+        # Handle notifications for mentions
+        mentions = extract_mentions(text)
+        for mentioned_username in mentions:
+            # Make sure the mentioned user exists and is not the commenter
+            mentioned_user = db.get_user(mentioned_username)
+            if mentioned_user and mentioned_username != current_username:
+                # Create notification for the mentioned user
+                db.create_notification(
+                    username=mentioned_username,
+                    type='mention',
+                    content=f"{current_username} mentioned you in a comment on {app.get('name')} v{version}",
+                    reference_id=comment.get('id'),
+                    reference_type='comment',
+                    from_user=current_username
+                )
+        
         flash('Comment added successfully')
     else:
         flash(f'Error adding comment: {result.get("message")}')
