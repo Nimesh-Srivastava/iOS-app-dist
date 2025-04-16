@@ -59,7 +59,7 @@
         const markAllReadBtn = document.getElementById('mark-all-read-btn');
         if (markAllReadBtn) {
             markAllReadBtn.addEventListener('click', function() {
-                fetch('/notifications/mark_all_read', {
+                fetch('/api/notifications/mark_all_read', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -118,7 +118,7 @@
         
         function handleNotificationClick(notificationId, dataset) {
             // Mark notification as read
-            fetch(`/notifications/mark_read/${notificationId}`, {
+            fetch(`/api/notifications/mark_read/${notificationId}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -160,7 +160,7 @@
         
         function navigateToCommentNotification(notificationId, commentId) {
             // Get the app details from the notification
-            fetch(`/notifications/${notificationId}/details`)
+            fetch(`/api/notifications/${notificationId}/details`)
                 .then(response => response.json())
                 .then(data => {
                     if (data.success && data.app_id) {
@@ -176,7 +176,7 @@
         }
         
         function deleteNotification(notificationId) {
-            fetch(`/notifications/delete/${notificationId}`, {
+            fetch(`/api/notifications/delete/${notificationId}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'

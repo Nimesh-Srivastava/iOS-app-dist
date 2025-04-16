@@ -805,11 +805,19 @@
 		{% if g.user %}
 		<script>
 			function getNotifications() {
-				fetch("/notifications?limit=5")
+				fetch("/api/notifications?limit=5")
 					.then(response => response.json())
 					.then(data => {
 							updateNotificationCounter(data.unread_count);
 							renderNotifications(data.notifications);
+					})
+					.catch(error => {
+						console.error("Error fetching notifications:", error);
+						document.getElementById("notificationsContainer").innerHTML = `
+							<div class="text-center p-3">
+								<p class="mb-0 text-danger">Error loading notifications</p>
+							</div>
+						`;
 					});
 			}
 			
@@ -877,7 +885,7 @@
 			
 			function handleNotificationClick(notificationId, dataset) {
 				// Mark notification as read
-				fetch(`/notifications/mark_read/${notificationId}`, {
+				fetch(`/api/notifications/mark_read/${notificationId}`, {
 					method: 'POST',
 					headers: {
 						'Content-Type': 'application/json'
@@ -911,7 +919,7 @@
 			
 			function navigateToCommentNotification(notificationId, commentId) {
 				// Get the app details from the notification
-				fetch(`/notifications/${notificationId}/details`)
+				fetch(`/api/notifications/${notificationId}/details`)
 					.then(response => response.json())
 					.then(data => {
 						if (data.success && data.app_id) {
@@ -927,7 +935,7 @@
 			}
 			
 			function deleteNotification(notificationId) {
-				fetch(`/notifications/delete/${notificationId}`, {
+				fetch(`/api/notifications/delete/${notificationId}`, {
 					method: 'POST',
 					headers: {
 						'Content-Type': 'application/json'
@@ -975,7 +983,7 @@
 			}
 			
 			function markAllAsRead() {
-				fetch('/notifications/mark_all_read', {
+				fetch('/api/notifications/mark_all_read', {
 					method: 'POST',
 					headers: {
 						'Content-Type': 'application/json',
