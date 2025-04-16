@@ -557,8 +557,7 @@ def add_comment(app_id, version, username, text, parent_id=None):
         'user_role': user.get('role', 'user'),
         'text': text,
         'timestamp': datetime.now().isoformat(),
-        'parent_id': parent_id,
-        'likes': 0
+        'parent_id': parent_id
     }
     
     comments_collection.insert_one(comment_data)
@@ -638,22 +637,6 @@ def delete_comment(comment_id, username=None, is_admin=False):
     # Delete the comment itself
     result = comments_collection.delete_one({'id': comment_id})
     return result.deleted_count > 0
-
-def like_comment(comment_id):
-    """
-    Increment the like count for a comment
-    
-    Args:
-        comment_id (str): The comment ID
-        
-    Returns:
-        bool: True if the comment was liked, False otherwise
-    """
-    result = comments_collection.update_one(
-        {'id': comment_id},
-        {'$inc': {'likes': 1}}
-    )
-    return result.modified_count > 0
 
 def delete_app_comments(app_id):
     """

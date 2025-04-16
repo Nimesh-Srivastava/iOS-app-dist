@@ -211,21 +211,28 @@ def install(app_id):
     host = request.host_url.rstrip('/')
     manifest_url = f"{host}{url_for('app.app_manifest', app_id=app_id)}"
     
-    return render_template('install.html', app=app, manifest_url=manifest_url)
+    # Generate the iOS installation URL using the itms-services protocol
+    install_url = f"itms-services://?action=download-manifest&url={manifest_url}"
+    
+    return render_template('install.html', app=app, manifest_url=manifest_url, install_url=install_url)
 
 @app_bp.route('/direct_install/<app_id>')
 def direct_install(app_id):
-    # This is for iOS devices to install directly
-    app = db.get_app(app_id)
-    if not app:
-        abort(404)  # App not found
+    # Check if user has access to this app
+    if 'username' not in session:
+        # For direct installs, redirect to login
+        return redirect(url_for('auth.login', next=request.url))
         
-    # Generate manifest URL
-    host = request.host_url.rstrip('/')
-    manifest_url = f"{host}{url_for('app.app_manifest', app_id=app_id)}"
+    app = db.get_app(app_id)
+    if not app or not db.get_user_app_access(session['username'], app_id):
+        flash('You do not have access to this app')
+        return redirect(url_for('app.index'))
     
-    # Redirect to the itms-services URL for iOS installation
-    return redirect(f"itms-services://?action=download-manifest&url={manifest_url}")
+    # Generate download URL for the IPA file
+    host = request.host_url.rstrip('/')
+    download_url = f"{host}{url_for('app.download_app', app_id=app_id, filename=app.get('filename', 'app.ipa'))}"
+    
+    return render_template('direct_install.html', app=app, download_url=download_url)
 
 @app_bp.route('/manifest/<app_id>')
 def app_manifest(app_id):
@@ -492,19 +499,4 @@ def delete_comment(app_id, comment_id):
     else:
         flash('Error deleting comment. You can only delete your own comments.')
     
-    return redirect(url_for('app.app_detail', app_id=app_id))
-
-@app_bp.route('/like_comment/<app_id>/<comment_id>', methods=['POST'])
-@login_required
-def like_comment(app_id, comment_id):
-    # Get the current page URL to redirect back
-    next_url = request.form.get('next') or url_for('app.app_detail', app_id=app_id)
-    
-    # Like the comment
-    if db.like_comment(comment_id):
-        # Silent success - no flash needed for likes
-        pass
-    else:
-        flash('Error liking comment')
-    
-    return redirect(next_url) 
+    return redirect(url_for('app.app_detail', app_id=app_id)) 

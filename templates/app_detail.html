@@ -355,13 +355,6 @@
 																
 																<div class="d-flex justify-content-between align-items-center mt-2">
 																	<div class="d-flex align-items-center">
-																		<form action="{{ url_for('app.like_comment', app_id=app.id, comment_id=comment.id) }}" method="post" class="me-3">
-																			<input type="hidden" name="next" value="{{ request.path }}">
-																			<button type="submit" class="btn btn-sm p-0 text-muted like-btn">
-																				<i class="far fa-thumbs-up me-1"></i>{{ comment.likes if comment.likes else 0 }}
-																			</button>
-																		</form>
-																		
 																		<button type="button" class="btn btn-sm p-0 text-muted" 
 																			onclick="toggleReplyForm('{{ comment.id }}')">
 																			<i class="far fa-comment me-1"></i>Reply
@@ -426,19 +419,13 @@
 																		<p class="mb-1 small">{{ reply.text }}</p>
 																		
 																		<div class="d-flex justify-content-between align-items-center mt-1">
-																			<form action="{{ url_for('app.like_comment', app_id=app.id, comment_id=reply.id) }}" method="post">
-																				<input type="hidden" name="next" value="{{ request.path }}">
-																				<button type="submit" class="btn btn-sm p-0 text-muted like-btn">
-																					<i class="far fa-thumbs-up me-1"></i>{{ reply.likes if reply.likes else 0 }}
-																				</button>
-																			</form>
+																			<div><!-- Empty div to maintain spacing --></div>
 																			
 																			{% if g.user.username == reply.username or g.user.role == 'admin' %}
 																			<form 
 																				action="{{ url_for('app.delete_comment', app_id=app.id, comment_id=reply.id) }}" 
 																				method="post"
 																				onsubmit="return confirm('Delete this reply?')"
-																				class="ms-2"
 																			>
 																				<button type="submit" class="btn btn-sm p-0 text-danger">
 																					<i class="fas fa-times"></i>
