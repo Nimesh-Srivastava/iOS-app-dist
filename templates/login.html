@@ -12,7 +12,8 @@ block content %}
         <p class="text-muted mb-0">Sign in to access your applications</p>
       </div>
       <div class="card-body p-4">
-        <form method="post">
+        <form method="post" action="{{ url_for('auth.login') }}">
+          {{ form.csrf_token if form }}
           <div class="mb-3">
             <label for="username" class="form-label">Username</label>
             <div class="input-group">
