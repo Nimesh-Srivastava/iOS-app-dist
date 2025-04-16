@@ -38,6 +38,45 @@
 		font-size: 0.7rem;
 		font-weight: normal;
 	}
+	/* New comment reply styling */
+	.comment-item {
+		transition: background-color 0.2s;
+	}
+	.comment-item:hover {
+		background-color: rgba(0,0,0,0.01);
+	}
+	.comment-replies {
+		border-left: 2px solid rgba(0,0,0,0.1);
+		padding-left: 1rem;
+	}
+	.comment-reply {
+		background-color: rgba(0,0,0,0.03);
+		border-left: 2px solid rgba(13, 110, 253, 0.2);
+	}
+	.comment-reply p {
+		font-size: 0.85rem !important;
+	}
+	.like-btn:hover {
+		color: #0d6efd !important;
+	}
+	.like-btn:active {
+		transform: scale(1.1);
+	}
+	/* Dark mode comment form */
+	.list-group-item.bg-dark {
+		background-color: #212529 !important;
+	}
+	.list-group-item.bg-dark form * {
+		color: white;
+	}
+	.list-group-item.bg-dark textarea {
+		background-color: #343a40;
+		border-color: #495057;
+		color: white;
+	}
+	.list-group-item.bg-dark textarea::placeholder {
+		color: #adb5bd;
+	}
 </style>
 {% endblock %}
 
@@ -84,11 +123,13 @@
 					>
 						<div>
 							<i class="far fa-calendar-alt me-1"></i>
-							{% if app.upload_date %} {{
-							app.upload_date.split('T')[0] }} {% elif
-							app.creation_date %} {{
-							app.creation_date.split('T')[0] }} {% else %}
-							Unknown {% endif %}
+							{% if app.formatted_upload_date %} 
+							{{ app.formatted_upload_date }} 
+							{% elif app.formatted_creation_date %} 
+							{{ app.formatted_creation_date }} 
+							{% else %}
+							Unknown 
+							{% endif %}
 						</div>
 						<div>
 							<i class="fas fa-file-archive me-1"></i>
@@ -246,7 +287,7 @@
 										{% endif %}
 									</td>
 									<td>
-										{{ version.upload_date.split('T')[0] }}
+										{{ version.formatted_upload_date }}
 									</td>
 									<td>
 										{{ (version.size / 1024 / 1024)|round(2)
@@ -294,7 +335,7 @@
 													<div class="accordion-body p-0">
 														<div class="list-group list-group-flush">
 															{% for comment in version_comments %}
-															<div class="list-group-item list-group-item-action py-3 ps-4">
+															<div class="list-group-item py-3 ps-4 comment-item">
 																<div class="d-flex justify-content-between mb-2">
 																	<div>
 																		<span class="fw-bold">{{ comment.username }}</span>
@@ -307,23 +348,106 @@
 																		{% endif %}
 																	</div>
 																	<small class="text-muted">
-																		{{ comment.timestamp.split('T')[0] }} 
-																		{{ comment.timestamp.split('T')[1][:5] }}
+																		{{ format_datetime(comment.timestamp, 'timeago') }}
 																	</small>
 																</div>
 																<p class="mb-1">{{ comment.text }}</p>
 																
-																{% if g.user.username == comment.username or g.user.role == 'admin' %}
-																<div class="d-flex justify-content-end mt-2">
-																	<form 
-																		action="{{ url_for('app.delete_comment', app_id=app.id, comment_id=comment.id) }}" 
-																		method="post"
-																		onsubmit="return confirm('Delete this comment?')"
-																	>
-																		<button type="submit" class="btn btn-sm btn-outline-danger">
-																			<i class="fas fa-trash-alt"></i>
+																<div class="d-flex justify-content-between align-items-center mt-2">
+																	<div class="d-flex align-items-center">
+																		<form action="{{ url_for('app.like_comment', app_id=app.id, comment_id=comment.id) }}" method="post" class="me-3">
+																			<input type="hidden" name="next" value="{{ request.path }}">
+																			<button type="submit" class="btn btn-sm p-0 text-muted like-btn">
+																				<i class="far fa-thumbs-up me-1"></i>{{ comment.likes if comment.likes else 0 }}
+																			</button>
+																		</form>
+																		
+																		<button type="button" class="btn btn-sm p-0 text-muted" 
+																			onclick="toggleReplyForm('{{ comment.id }}')">
+																			<i class="far fa-comment me-1"></i>Reply
 																		</button>
+																	</div>
+																	
+																	{% if g.user.username == comment.username or g.user.role == 'admin' %}
+																	<div>
+																		<form 
+																			action="{{ url_for('app.delete_comment', app_id=app.id, comment_id=comment.id) }}" 
+																			method="post"
+																			onsubmit="return confirm('Delete this comment?')"
+																		>
+																			<button type="submit" class="btn btn-sm btn-outline-danger">
+																				<i class="fas fa-trash-alt"></i>
+																			</button>
+																		</form>
+																	</div>
+																	{% endif %}
+																</div>
+																
+																<!-- Reply form, hidden by default -->
+																<div id="replyForm{{ comment.id }}" class="reply-form mt-3" style="display: none;">
+																	<form action="{{ url_for('app.add_comment', app_id=app.id) }}" method="post">
+																		<input type="hidden" name="version" value="{{ version.version }}">
+																		<input type="hidden" name="parent_id" value="{{ comment.id }}">
+																		<div class="input-group">
+																			<textarea 
+																				class="form-control form-control-sm"
+																				name="comment_text" 
+																				rows="1" 
+																				placeholder="Write a reply..."
+																				required
+																			></textarea>
+																			<button type="submit" class="btn btn-sm btn-primary">
+																				<i class="far fa-paper-plane"></i>
+																			</button>
+																		</div>
 																	</form>
+																</div>
+																
+																<!-- Comment replies -->
+																{% if comment.replies %}
+																<div class="ms-4 mt-3 comment-replies">
+																	{% for reply in comment.replies %}
+																	<div class="comment-reply p-2 mb-2 rounded">
+																		<div class="d-flex justify-content-between mb-1">
+																			<div>
+																				<span class="fw-bold">{{ reply.username }}</span>
+																				{% if reply.user_role == 'admin' %}
+																				<span class="badge bg-danger ms-1 comment-badge">Admin</span>
+																				{% elif reply.user_role == 'developer' %}
+																				<span class="badge bg-primary ms-1 comment-badge">Developer</span>
+																				{% elif reply.user_role == 'tester' %}
+																				<span class="badge bg-info ms-1 comment-badge">Tester</span>
+																				{% endif %}
+																			</div>
+																			<small class="text-muted">
+																				{{ format_datetime(reply.timestamp, 'timeago') }}
+																			</small>
+																		</div>
+																		<p class="mb-1 small">{{ reply.text }}</p>
+																		
+																		<div class="d-flex justify-content-between align-items-center mt-1">
+																			<form action="{{ url_for('app.like_comment', app_id=app.id, comment_id=reply.id) }}" method="post">
+																				<input type="hidden" name="next" value="{{ request.path }}">
+																				<button type="submit" class="btn btn-sm p-0 text-muted like-btn">
+																					<i class="far fa-thumbs-up me-1"></i>{{ reply.likes if reply.likes else 0 }}
+																				</button>
+																			</form>
+																			
+																			{% if g.user.username == reply.username or g.user.role == 'admin' %}
+																			<form 
+																				action="{{ url_for('app.delete_comment', app_id=app.id, comment_id=reply.id) }}" 
+																				method="post"
+																				onsubmit="return confirm('Delete this reply?')"
+																				class="ms-2"
+																			>
+																				<button type="submit" class="btn btn-sm p-0 text-danger">
+																					<i class="fas fa-times"></i>
+																				</button>
+																			</form>
+																			{% endif %}
+																		</div>
+																	</div>
+																	{% endfor %}
 																</div>
 																{% endif %}
 															</div>
@@ -334,13 +458,13 @@
 															{% endfor %}
 															
 															<!-- Comment Form -->
-															<div class="list-group-item py-3 px-4 bg-light">
+															<div class="list-group-item py-3 px-4 bg-dark">
 																<form action="{{ url_for('app.add_comment', app_id=app.id) }}" method="post">
 																	<input type="hidden" name="version" value="{{ version.version }}">
 																	<div class="mb-3">
-																		<label for="comment{{ loop.index }}" class="form-label small">Add a comment</label>
+																		<label for="comment{{ loop.index }}" class="form-label small text-light">Add a comment</label>
 																		<textarea 
-																			class="form-control form-control-sm" 
+																			class="form-control form-control-sm bg-dark text-light border-secondary" 
 																			id="comment{{ loop.index }}" 
 																			name="comment_text" 
 																			rows="2" 
@@ -349,7 +473,7 @@
 																		></textarea>
 																	</div>
 																	<div class="d-flex justify-content-end">
-																		<button type="submit" class="btn btn-sm btn-primary">
+																		<button type="submit" class="btn btn-sm btn-outline-light">
 																			<i class="far fa-paper-plane me-1"></i> Submit
 																		</button>
 																	</div>
@@ -475,4 +599,20 @@
 		</div>
 	</div>
 </div>
+
+<!-- JavaScript for comment replies -->
+{% block scripts %}
+<script>
+	function toggleReplyForm(commentId) {
+		const replyForm = document.getElementById('replyForm' + commentId);
+		if (replyForm.style.display === 'none') {
+			replyForm.style.display = 'block';
+			// Focus on the textarea
+			replyForm.querySelector('textarea').focus();
+		} else {
+			replyForm.style.display = 'none';
+		}
+	}
+</script>
+{% endblock %}
 {% endblock %}

@@ -525,7 +525,7 @@ def delete_build_files(build_id):
     return result.deleted_count > 0
 
 # Comment operations
-def add_comment(app_id, version, username, text):
+def add_comment(app_id, version, username, text, parent_id=None):
     """
     Add a comment to an app version
     
@@ -534,6 +534,7 @@ def add_comment(app_id, version, username, text):
         version (str): The app version
         username (str): The commenting user
         text (str): The comment text
+        parent_id (str, optional): Parent comment ID if this is a reply
         
     Returns:
         dict: The comment data with success status
@@ -550,11 +551,13 @@ def add_comment(app_id, version, username, text):
         'user_role': user.get('role', 'user'),
         'text': text,
         'timestamp': datetime.now().isoformat(),
+        'parent_id': parent_id,
+        'likes': 0
     }
     
     comments_collection.insert_one(comment_data)
     return {'success': True, 'comment': comment_data}
-    
+
 def get_comments_for_version(app_id, version=None):
     """
     Get comments for an app version
@@ -575,8 +578,31 @@ def get_comments_for_version(app_id, version=None):
         {'_id': 0}
     ).sort('timestamp', -1))  # Newest first
     
-    return comments
+    # Organize comments into threads (parent comments with replies)
+    comment_threads = []
+    replies_map = {}
     
+    # First, separate parent comments from replies
+    for comment in comments:
+        if comment.get('parent_id'):
+            parent_id = comment.get('parent_id')
+            if parent_id not in replies_map:
+                replies_map[parent_id] = []
+            replies_map[parent_id].append(comment)
+        else:
+            # This is a parent comment
+            comment['replies'] = []
+            comment_threads.append(comment)
+    
+    # Then, add replies to their parent comments
+    for comment in comment_threads:
+        if comment['id'] in replies_map:
+            # Sort replies by timestamp (oldest first for conversation flow)
+            comment['replies'] = sorted(replies_map[comment['id']], key=lambda x: x['timestamp'])
+    
+    # Sort parent comments by timestamp (newest first)
+    return sorted(comment_threads, key=lambda x: x['timestamp'], reverse=True)
+
 def delete_comment(comment_id, username=None, is_admin=False):
     """
     Delete a comment
@@ -598,10 +624,31 @@ def delete_comment(comment_id, username=None, is_admin=False):
     if not is_admin and username != comment.get('username'):
         return False
         
-    # Delete the comment
+    # Delete the comment and all its replies
+    if comment.get('parent_id') is None:
+        # This is a parent comment, delete all replies too
+        comments_collection.delete_many({'parent_id': comment_id})
+    
+    # Delete the comment itself
     result = comments_collection.delete_one({'id': comment_id})
     return result.deleted_count > 0
+
+def like_comment(comment_id):
+    """
+    Increment the like count for a comment
     
+    Args:
+        comment_id (str): The comment ID
+        
+    Returns:
+        bool: True if the comment was liked, False otherwise
+    """
+    result = comments_collection.update_one(
+        {'id': comment_id},
+        {'$inc': {'likes': 1}}
+    )
+    return result.modified_count > 0
+
 def delete_app_comments(app_id):
     """
     Delete all comments for an app (used when deleting an app)

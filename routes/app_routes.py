@@ -10,7 +10,7 @@ import logging
 import base64
 
 from utils.decorators import login_required, admin_required, admin_or_developer_required
-from utils.file_utils import allowed_file
+from utils.file_utils import allowed_file, format_datetime
 from models import add_app_version
 
 app_bp = Blueprint('app', __name__)
@@ -125,10 +125,24 @@ def app_detail(app_id):
             comments_by_version[version] = []
         comments_by_version[version].append(comment)
     
+    # Format dates in the app object to DD-MMM-YYYY
+    if app.get('upload_date'):
+        app['formatted_upload_date'] = format_datetime(app.get('upload_date'))
+    
+    if app.get('creation_date'):
+        app['formatted_creation_date'] = format_datetime(app.get('creation_date'))
+    
+    # Format dates in versions
+    if app.get('versions'):
+        for version in app.get('versions', []):
+            if version.get('upload_date'):
+                version['formatted_upload_date'] = format_datetime(version.get('upload_date'))
+    
     return render_template('app_detail.html', 
                            app=app, 
                            shared_users=shared_users, 
-                           comments_by_version=comments_by_version)
+                           comments_by_version=comments_by_version,
+                           format_datetime=format_datetime)
 
 @app_bp.route('/edit/<app_id>', methods=['GET', 'POST'])
 @admin_required
@@ -358,6 +372,7 @@ def unshare_app(app_id, username):
 def add_comment(app_id):
     version = request.form.get('version')
     text = request.form.get('comment_text')
+    parent_id = request.form.get('parent_id')
     
     if not version or not text:
         flash('Version and comment text are required')
@@ -370,7 +385,7 @@ def add_comment(app_id):
         return redirect(url_for('app.index'))
     
     # Add the comment
-    result = db.add_comment(app_id, version, session.get('username'), text)
+    result = db.add_comment(app_id, version, session.get('username'), text, parent_id)
     
     if result.get('success'):
         flash('Comment added successfully')
@@ -394,4 +409,19 @@ def delete_comment(app_id, comment_id):
     else:
         flash('Error deleting comment. You can only delete your own comments.')
     
-    return redirect(url_for('app.app_detail', app_id=app_id)) 
+    return redirect(url_for('app.app_detail', app_id=app_id))
+
+@app_bp.route('/like_comment/<app_id>/<comment_id>', methods=['POST'])
+@login_required
+def like_comment(app_id, comment_id):
+    # Get the current page URL to redirect back
+    next_url = request.form.get('next') or url_for('app.app_detail', app_id=app_id)
+    
+    # Like the comment
+    if db.like_comment(comment_id):
+        # Silent success - no flash needed for likes
+        pass
+    else:
+        flash('Error liking comment')
+    
+    return redirect(next_url) 

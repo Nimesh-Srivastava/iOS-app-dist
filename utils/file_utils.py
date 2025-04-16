@@ -6,7 +6,7 @@ import plistlib
 import base64
 from PIL import Image
 import io
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # File handling utilities
 ALLOWED_EXTENSIONS = {'ipa'}
@@ -180,4 +180,55 @@ def extract_minimal_app_info(file_data, filename, build_id):
         'version': 'unknown',
         'build_number': 'unknown',
         'name': os.path.splitext(filename)[0]
-    } 
+    }
+
+def format_datetime(dt_string, format_type='standard'):
+    """
+    Format a datetime string in a readable format
+    
+    Args:
+        dt_string (str): ISO format datetime string
+        format_type (str): 'standard' for DD-MMM-YYYY, 'timeago' for relative time
+        
+    Returns:
+        str: Formatted datetime string
+    """
+    if not dt_string:
+        return "Unknown"
+        
+    try:
+        dt = datetime.fromisoformat(dt_string)
+    except (ValueError, TypeError):
+        return dt_string
+        
+    if format_type == 'standard':
+        return dt.strftime('%d-%b-%Y')  # DD-MMM-YYYY
+        
+    elif format_type == 'timeago':
+        now = datetime.now()
+        diff = now - dt
+        
+        seconds = diff.total_seconds()
+        
+        if seconds < 60:
+            return "just now"
+        elif seconds < 3600:
+            minutes = int(seconds // 60)
+            return f"{minutes} minute{'s' if minutes != 1 else ''} ago"
+        elif seconds < 86400:
+            hours = int(seconds // 3600)
+            return f"{hours} hour{'s' if hours != 1 else ''} ago"
+        elif seconds < 604800:
+            days = int(seconds // 86400)
+            return f"{days} day{'s' if days != 1 else ''} ago"
+        elif seconds < 2592000:
+            weeks = int(seconds // 604800)
+            return f"{weeks} week{'s' if weeks != 1 else ''} ago"
+        elif seconds < 31536000:
+            months = int(seconds // 2592000)
+            return f"{months} month{'s' if months != 1 else ''} ago"
+        else:
+            years = int(seconds // 31536000)
+            return f"{years} year{'s' if years != 1 else ''} ago"
+    
+    return dt_string  # Default fallback 
