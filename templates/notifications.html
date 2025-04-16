@@ -1,0 +1,207 @@
+{% extends 'base.html' %}
+
+{% block title %}All Notifications{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3">Notifications</h1>
+        <button id="mark-all-read-btn" class="btn btn-sm btn-outline-primary">
+            Mark all as read
+        </button>
+    </div>
+
+    {% if notifications %}
+        <div class="card shadow-sm">
+            <div class="list-group list-group-flush" id="notifications-list">
+                {% for notification in notifications %}
+                <div class="list-group-item notification-item {% if not notification.read %}unread{% endif %}" 
+                     data-id="{{ notification.id }}"
+                     data-type="{{ notification.type }}"
+                     data-reference-id="{{ notification.reference_id or '' }}"
+                     data-reference-type="{{ notification.reference_type or '' }}">
+                    <div class="d-flex w-100 justify-content-between">
+                        <div class="d-flex flex-column">
+                            <h5 class="mb-1">
+                                {{ notification.message }}
+                                {% if not notification.read %}
+                                <span class="badge bg-primary ms-2">New</span>
+                                {% endif %}
+                            </h5>
+                            <small class="text-muted">{{ notification.formatted_date }}</small>
+                        </div>
+                        <div>
+                            <button class="btn btn-sm btn-outline-danger delete-notification-btn" 
+                                    data-id="{{ notification.id }}">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% else %}
+        <div class="alert alert-info">
+            <i class="fas fa-bell-slash me-2"></i> You have no notifications.
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Mark all as read button
+        const markAllReadBtn = document.getElementById('mark-all-read-btn');
+        if (markAllReadBtn) {
+            markAllReadBtn.addEventListener('click', function() {
+                fetch('/notifications/mark_all_read', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Update the UI to mark all notifications as read
+                        document.querySelectorAll('.notification-item.unread').forEach(item => {
+                            item.classList.remove('unread');
+                        });
+                        document.querySelectorAll('.badge.bg-primary').forEach(badge => {
+                            badge.remove();
+                        });
+                        
+                        // Update notification counter in the header
+                        if (typeof updateNotificationCounter === 'function') {
+                            updateNotificationCounter(0);
+                        }
+                        
+                        // Show success message
+                        alert(`Marked ${data.count} notifications as read`);
+                    }
+                });
+            });
+        }
+        
+        // Notification item click
+        document.querySelectorAll('.notification-item').forEach(item => {
+            item.addEventListener('click', function(e) {
+                // Don't handle the click if they clicked the delete button
+                if (e.target.closest('.delete-notification-btn')) {
+                    return;
+                }
+                
+                const notificationId = this.dataset.id;
+                handleNotificationClick(notificationId, this.dataset);
+            });
+        });
+        
+        // Delete notification buttons
+        document.querySelectorAll('.delete-notification-btn').forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const notificationId = this.dataset.id;
+                
+                if (confirm('Are you sure you want to delete this notification?')) {
+                    deleteNotification(notificationId);
+                }
+            });
+        });
+        
+        function handleNotificationClick(notificationId, dataset) {
+            // Mark notification as read
+            fetch(`/notifications/mark_read/${notificationId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update the UI to mark this notification as read
+                    const notificationElement = document.querySelector(`.notification-item[data-id="${notificationId}"]`);
+                    if (notificationElement) {
+                        notificationElement.classList.remove('unread');
+                        const badge = notificationElement.querySelector('.badge.bg-primary');
+                        if (badge) badge.remove();
+                    }
+                    
+                    // Update notification counter in the header
+                    if (typeof updateNotificationCounter === 'function') {
+                        updateNotificationCounter(data.unread_count);
+                    }
+                    
+                    // Handle navigation based on notification type
+                    const type = dataset.type;
+                    const referenceId = dataset.referenceId;
+                    const referenceType = dataset.referenceType;
+                    
+                    // Get more details if needed for navigation
+                    if (referenceType === 'comment' && referenceId) {
+                        navigateToCommentNotification(notificationId, referenceId);
+                    } else if (type === 'access') {
+                        // For access notifications, redirect to the app page
+                        if (referenceId) {
+                            window.location.href = `/app/${referenceId}`;
+                        }
+                    }
+                }
+            });
+        }
+        
+        function navigateToCommentNotification(notificationId, commentId) {
+            // Get the app details from the notification
+            fetch(`/notifications/${notificationId}/details`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.app_id) {
+                        // Navigate to the app detail page with comment highlight
+                        let url = `/app/${data.app_id}`;
+                        if (data.version) {
+                            url += `/${data.version}`;
+                        }
+                        url += `?comment=${commentId}`;
+                        window.location.href = url;
+                    }
+                });
+        }
+        
+        function deleteNotification(notificationId) {
+            fetch(`/notifications/delete/${notificationId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Remove the notification from the UI
+                    const notificationElement = document.querySelector(`.notification-item[data-id="${notificationId}"]`);
+                    if (notificationElement) {
+                        notificationElement.remove();
+                    }
+                    
+                    // Update notification counter in the header
+                    if (typeof updateNotificationCounter === 'function') {
+                        updateNotificationCounter(data.unread_count);
+                    }
+                    
+                    // Show empty message if all notifications are gone
+                    if (document.querySelectorAll('.notification-item').length === 0) {
+                        document.getElementById('notifications-list').innerHTML = `
+                            <div class="list-group-item text-center py-4">
+                                <i class="fas fa-bell-slash text-muted mb-2"></i>
+                                <p class="mb-0">You have no notifications</p>
+                            </div>
+                        `;
+                    }
+                }
+            });
+        }
+    });
+</script>
+{% endblock %} 

@@ -788,3 +788,58 @@ def delete_user_notifications(username):
     """
     result = notifications_collection.delete_many({'username': username})
     return result.deleted_count
+
+def delete_notification(notification_id, username=None):
+    """
+    Delete a specific notification
+    
+    Args:
+        notification_id (str): The notification ID
+        username (str, optional): Username for permission check
+        
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    query = {'id': notification_id}
+    if username:
+        query['username'] = username
+        
+    result = notifications_collection.delete_one(query)
+    return result.deleted_count > 0
+
+def get_notification_details(notification_id, username=None):
+    """
+    Get detailed information about a notification for navigation
+    
+    Args:
+        notification_id (str): The notification ID
+        username (str, optional): Username for permission check
+        
+    Returns:
+        dict: Notification details with navigation information
+    """
+    query = {'id': notification_id}
+    if username:
+        query['username'] = username
+        
+    notification = notifications_collection.find_one(query, {'_id': 0})
+    
+    if not notification:
+        return None
+    
+    details = {'notification': notification}
+    
+    # For comment notifications, get the associated app and version
+    if notification.get('reference_type') == 'comment' and notification.get('reference_id'):
+        comment = comments_collection.find_one({'id': notification.get('reference_id')}, {'_id': 0})
+        if comment:
+            details['app_id'] = comment.get('app_id')
+            details['version'] = comment.get('version')
+    
+    # For access notifications, get the app details
+    if notification.get('reference_type') == 'app' and notification.get('reference_id'):
+        app = apps_collection.find_one({'id': notification.get('reference_id')}, {'_id': 0})
+        if app:
+            details['app_id'] = app.get('id')
+    
+    return details
