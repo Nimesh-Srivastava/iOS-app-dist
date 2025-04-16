@@ -1,5 +1,47 @@
 {% extends 'base.html' %} {% block title %}{{ app.name }} - AppCenter{% endblock
-%} {% block content %}
+%} {% block styles %}
+<style>
+	/* Version comments styling */
+	.version-comments .accordion-button::after {
+		margin-left: 0.5rem;
+		width: 0.8rem;
+		height: 0.8rem;
+		background-size: 0.8rem;
+	}
+	.version-comments .accordion-button {
+		font-size: 0.9rem;
+	}
+	.version-comments .list-group-item {
+		border-left: none;
+		border-right: none;
+	}
+	.version-comments .list-group-item p {
+		white-space: pre-line;
+		font-size: 0.9rem;
+	}
+	.comment-badge {
+		font-size: 0.7rem;
+		padding: 0.2rem 0.4rem;
+	}
+	.version-comments textarea::placeholder {
+		font-size: 0.85rem;
+		color: #aaa;
+	}
+	.version-comments small.text-muted {
+		font-size: 0.75rem;
+	}
+	/* Comment count badge in version row */
+	.badge.rounded-pill i {
+		font-size: 0.7rem;
+	}
+	.badge.rounded-pill {
+		font-size: 0.7rem;
+		font-weight: normal;
+	}
+</style>
+{% endblock %}
+
+{% block content %}
 <div class="container">
 	<!-- Back button and app title -->
 	<div class="d-flex align-items-center mb-4">
@@ -157,6 +199,18 @@
 		</div>
 
 		<div class="col-lg-8">
+			<!-- Installation Help Button -->
+			<div class="d-grid gap-2 mb-4">
+				<button
+					type="button"
+					class="btn btn-outline-info"
+					data-bs-toggle="modal"
+					data-bs-target="#installationInstructionsModal"
+				>
+					<i class="fas fa-info-circle me-2"></i> Installation Instructions
+				</button>
+			</div>
+			
 			<!-- Version History -->
 			<div class="card mb-4 border-0 shadow-sm">
 				<div class="card-header">
@@ -197,6 +251,12 @@
 									<td>
 										{{ (version.size / 1024 / 1024)|round(2)
 										}} MB
+										{% set version_comments = comments_by_version.get(version.version, []) %}
+										{% if version_comments %}
+										<span class="badge bg-secondary rounded-pill ms-2" title="Comments">
+											<i class="far fa-comments small me-1"></i>{{ version_comments|length }}
+										</span>
+										{% endif %}
 									</td>
 									<td class="text-end">
 										<a
@@ -206,6 +266,100 @@
 											<i class="fas fa-download me-1"></i>
 											Download
 										</a>
+									</td>
+								</tr>
+								<tr class="version-comments">
+									<td colspan="4" class="p-0">
+										{% set version_comments = comments_by_version.get(version.version, []) %}
+										<div class="accordion accordion-flush" id="version{{ loop.index }}Comments">
+											<div class="accordion-item border-0">
+												<h2 class="accordion-header">
+													<button
+														class="accordion-button collapsed ps-4 py-2"
+														type="button"
+														data-bs-toggle="collapse"
+														data-bs-target="#flush-comments{{ loop.index }}"
+														aria-expanded="false"
+														aria-controls="flush-comments{{ loop.index }}"
+													>
+														<i class="far fa-comments me-2 text-muted"></i>
+														Comments ({{ version_comments|length }})
+													</button>
+												</h2>
+												<div
+													id="flush-comments{{ loop.index }}"
+													class="accordion-collapse collapse"
+													data-bs-parent="#version{{ loop.index }}Comments"
+												>
+													<div class="accordion-body p-0">
+														<div class="list-group list-group-flush">
+															{% for comment in version_comments %}
+															<div class="list-group-item list-group-item-action py-3 ps-4">
+																<div class="d-flex justify-content-between mb-2">
+																	<div>
+																		<span class="fw-bold">{{ comment.username }}</span>
+																		{% if comment.user_role == 'admin' %}
+																		<span class="badge bg-danger ms-1 comment-badge">Admin</span>
+																		{% elif comment.user_role == 'developer' %}
+																		<span class="badge bg-primary ms-1 comment-badge">Developer</span>
+																		{% elif comment.user_role == 'tester' %}
+																		<span class="badge bg-info ms-1 comment-badge">Tester</span>
+																		{% endif %}
+																	</div>
+																	<small class="text-muted">
+																		{{ comment.timestamp.split('T')[0] }} 
+																		{{ comment.timestamp.split('T')[1][:5] }}
+																	</small>
+																</div>
+																<p class="mb-1">{{ comment.text }}</p>
+																
+																{% if g.user.username == comment.username or g.user.role == 'admin' %}
+																<div class="d-flex justify-content-end mt-2">
+																	<form 
+																		action="{{ url_for('app.delete_comment', app_id=app.id, comment_id=comment.id) }}" 
+																		method="post"
+																		onsubmit="return confirm('Delete this comment?')"
+																	>
+																		<button type="submit" class="btn btn-sm btn-outline-danger">
+																			<i class="fas fa-trash-alt"></i>
+																		</button>
+																	</form>
+																</div>
+																{% endif %}
+															</div>
+															{% else %}
+															<div class="list-group-item py-3 px-4 text-center text-muted">
+																<i class="fas fa-info-circle me-2"></i> No comments yet for this version
+															</div>
+															{% endfor %}
+															
+															<!-- Comment Form -->
+															<div class="list-group-item py-3 px-4 bg-light">
+																<form action="{{ url_for('app.add_comment', app_id=app.id) }}" method="post">
+																	<input type="hidden" name="version" value="{{ version.version }}">
+																	<div class="mb-3">
+																		<label for="comment{{ loop.index }}" class="form-label small">Add a comment</label>
+																		<textarea 
+																			class="form-control form-control-sm" 
+																			id="comment{{ loop.index }}" 
+																			name="comment_text" 
+																			rows="2" 
+																			placeholder="Enter your feedback, bug report, or suggestions..."
+																			required
+																		></textarea>
+																	</div>
+																	<div class="d-flex justify-content-end">
+																		<button type="submit" class="btn btn-sm btn-primary">
+																			<i class="far fa-paper-plane me-1"></i> Submit
+																		</button>
+																	</div>
+																</form>
+															</div>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
 									</td>
 								</tr>
 								{% endfor %}
@@ -219,18 +373,6 @@
 					</div>
 					{% endif %}
 				</div>
-			</div>
-
-			<!-- Installation Help Button -->
-			<div class="d-grid gap-2 mb-4">
-				<button
-					type="button"
-					class="btn btn-outline-info"
-					data-bs-toggle="modal"
-					data-bs-target="#installationInstructionsModal"
-				>
-					<i class="fas fa-info-circle me-2"></i> Installation Instructions
-				</button>
 			</div>
 		</div>
 	</div>

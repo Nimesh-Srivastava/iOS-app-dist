@@ -22,6 +22,7 @@ apps_collection = db['apps']
 builds_collection = db['builds']
 app_shares_collection = db['app_shares']  # New collection for tracking app sharing
 files_collection = db['files']  # New collection for storing IPA files
+comments_collection = db['comments']  # New collection for app version comments
 
 def initialize_db():
     """Initialize database with default data if empty"""
@@ -31,6 +32,7 @@ def initialize_db():
     builds_collection.create_index('id', unique=True)
     app_shares_collection.create_index([('app_id', 1), ('username', 1)], unique=True)  # Composite index
     files_collection.create_index('file_id', unique=True)  # Index for file storage
+    comments_collection.create_index([('app_id', 1), ('version', 1)])  # Index for comments by app version
     
     # Create default admin user if no users exist
     if users_collection.count_documents({}) == 0:
@@ -176,6 +178,9 @@ def delete_app(app_id):
     """Delete an app and all associated files"""
     # Delete files first
     delete_app_files(app_id)
+    
+    # Delete all comments for this app
+    delete_app_comments(app_id)
     
     # Then delete the app
     apps_collection.delete_one({'id': app_id})
@@ -518,3 +523,94 @@ def delete_build_files(build_id):
     )
     
     return result.deleted_count > 0
+
+# Comment operations
+def add_comment(app_id, version, username, text):
+    """
+    Add a comment to an app version
+    
+    Args:
+        app_id (str): The app ID
+        version (str): The app version
+        username (str): The commenting user
+        text (str): The comment text
+        
+    Returns:
+        dict: The comment data with success status
+    """
+    user = get_user(username)
+    if not user:
+        return {'success': False, 'message': 'User not found'}
+        
+    comment_data = {
+        'id': str(uuid.uuid4()),
+        'app_id': app_id,
+        'version': version,
+        'username': username,
+        'user_role': user.get('role', 'user'),
+        'text': text,
+        'timestamp': datetime.now().isoformat(),
+    }
+    
+    comments_collection.insert_one(comment_data)
+    return {'success': True, 'comment': comment_data}
+    
+def get_comments_for_version(app_id, version=None):
+    """
+    Get comments for an app version
+    
+    Args:
+        app_id (str): The app ID
+        version (str, optional): The app version. If None, get comments for all versions.
+        
+    Returns:
+        list: List of comments
+    """
+    query = {'app_id': app_id}
+    if version:
+        query['version'] = version
+        
+    comments = list(comments_collection.find(
+        query, 
+        {'_id': 0}
+    ).sort('timestamp', -1))  # Newest first
+    
+    return comments
+    
+def delete_comment(comment_id, username=None, is_admin=False):
+    """
+    Delete a comment
+    
+    Args:
+        comment_id (str): The comment ID
+        username (str, optional): The username of the user trying to delete
+        is_admin (bool): Whether the user is an admin
+        
+    Returns:
+        bool: True if the comment was deleted, False otherwise
+    """
+    # Find the comment first
+    comment = comments_collection.find_one({'id': comment_id}, {'_id': 0})
+    if not comment:
+        return False
+        
+    # Check permission - only comment author or admin can delete
+    if not is_admin and username != comment.get('username'):
+        return False
+        
+    # Delete the comment
+    result = comments_collection.delete_one({'id': comment_id})
+    return result.deleted_count > 0
+    
+def delete_app_comments(app_id):
+    """
+    Delete all comments for an app (used when deleting an app)
+    
+    Args:
+        app_id (str): The app ID
+        
+    Returns:
+        int: Number of comments deleted
+    """
+    result = comments_collection.delete_many({'app_id': app_id})
+    return result.deleted_count

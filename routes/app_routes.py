@@ -114,7 +114,21 @@ def app_detail(app_id):
     # Get shared users for this app
     shared_users = db.get_shared_users(app_id)
     
-    return render_template('app_detail.html', app=app, shared_users=shared_users)
+    # Get comments for all versions
+    all_comments = db.get_comments_for_version(app_id)
+    
+    # Organize comments by version
+    comments_by_version = {}
+    for comment in all_comments:
+        version = comment.get('version')
+        if version not in comments_by_version:
+            comments_by_version[version] = []
+        comments_by_version[version].append(comment)
+    
+    return render_template('app_detail.html', 
+                           app=app, 
+                           shared_users=shared_users, 
+                           comments_by_version=comments_by_version)
 
 @app_bp.route('/edit/<app_id>', methods=['GET', 'POST'])
 @admin_required
@@ -337,4 +351,47 @@ def unshare_app(app_id, username):
     else:
         flash(f'Error removing share: {message}')
         
+    return redirect(url_for('app.app_detail', app_id=app_id))
+
+@app_bp.route('/add_comment/<app_id>', methods=['POST'])
+@login_required
+def add_comment(app_id):
+    version = request.form.get('version')
+    text = request.form.get('comment_text')
+    
+    if not version or not text:
+        flash('Version and comment text are required')
+        return redirect(url_for('app.app_detail', app_id=app_id))
+    
+    # Make sure the app exists and user has access
+    app = db.get_app(app_id)
+    if not app or not db.get_user_app_access(session.get('username'), app_id):
+        flash('You do not have access to this app')
+        return redirect(url_for('app.index'))
+    
+    # Add the comment
+    result = db.add_comment(app_id, version, session.get('username'), text)
+    
+    if result.get('success'):
+        flash('Comment added successfully')
+    else:
+        flash(f'Error adding comment: {result.get("message")}')
+    
+    return redirect(url_for('app.app_detail', app_id=app_id))
+
+@app_bp.route('/delete_comment/<app_id>/<comment_id>', methods=['POST'])
+@login_required
+def delete_comment(app_id, comment_id):
+    username = session.get('username')
+    user = db.get_user(username)
+    is_admin = user and user.get('role') == 'admin'
+    
+    # Delete the comment
+    success = db.delete_comment(comment_id, username, is_admin)
+    
+    if success:
+        flash('Comment deleted successfully')
+    else:
+        flash('Error deleting comment. You can only delete your own comments.')
+    
     return redirect(url_for('app.app_detail', app_id=app_id)) 
