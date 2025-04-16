@@ -296,7 +296,7 @@ def manage_sharing(app_id):
         flash('Sharing settings updated')
         return redirect(url_for('app.app_detail', app_id=app_id))
     
-    return render_template('manage_sharing.html', app=app, users=filterable_users)
+    return render_template('manage_sharing.html', app=app, users=filterable_users, shared_users=shared_users)
 
 @app_bp.route('/share_app/<app_id>', methods=['POST'])
 @admin_or_developer_required
