@@ -36,7 +36,7 @@
           Build iOS applications directly from source code repositories
         </p>
       </div>
-      <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+      <a href="{{ url_for('app.index') }}" class="btn btn-outline-secondary">
         <i class="fas fa-arrow-left me-2"></i>Back to Apps
       </a>
     </div>
@@ -404,7 +404,7 @@
               <div class="d-flex justify-content-between">
                 <div class="d-flex gap-2">
                   <a
-                    href="{{ url_for('build_log', build_id=build.id) }}"
+                    href="{{ url_for('build.build_log', build_id=build.id) }}"
                     class="btn btn-sm btn-outline-secondary"
                   >
                     <i class="fas fa-file-alt me-1"></i> View Log
@@ -420,7 +420,7 @@
                   {% if build.status == 'building' or build.status ==
                   'in_progress' or build.status == 'queued' %}
                   <a
-                    href="{{ url_for('stop_build', build_id=build.id) }}"
+                    href="{{ url_for('build.stop_build', build_id=build.id) }}"
                     class="btn btn-sm btn-danger"
                     onclick="return confirm('Are you sure you want to stop this build?');"
                   >

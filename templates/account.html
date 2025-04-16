@@ -8,7 +8,7 @@ block content %}
           <h5 class="fw-bold mb-3">{{ user.username }}</h5>
           <div class="mb-3">
             <img
-              src="{{ url_for('user_profile_picture', username=user.username) }}"
+              src="{{ url_for('auth.user_profile_picture', username=user.username) }}"
               alt="Profile Picture"
               class="rounded-circle img-fluid"
               style="width: 150px; height: 150px; object-fit: cover"
@@ -36,14 +36,14 @@ block content %}
         </a>
         {% if user.role == 'admin' %}
         <a
-          href="{{ url_for('manage_users') }}"
+          href="{{ url_for('auth.manage_users') }}"
           class="list-group-item list-group-item-action"
         >
           <i class="fas fa-users me-2"></i>Manage Users
         </a>
         {% endif %}
         <a
-          href="{{ url_for('index') }}"
+          href="{{ url_for('app.index') }}"
           class="list-group-item list-group-item-action"
         >
           <i class="fas fa-arrow-left me-2"></i>Back to Apps
@@ -127,7 +127,7 @@ block content %}
             </div>
             <div class="card-body">
               <h6 class="mb-3">Change Password</h6>
-              <form action="{{ url_for('change_password') }}" method="post">
+              <form action="{{ url_for('auth.change_password') }}" method="post">
                 <div class="mb-3">
                   <label for="current_password" class="form-label"
                     >Current Password</label

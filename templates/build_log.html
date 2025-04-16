@@ -34,7 +34,7 @@
       {% if 'fork_info' in build and (build.status == 'failed' or build.status
       == 'completed' or build.status == 'cancelled') %}
       <form
-        action="{{ url_for('cleanup_repository', build_id=build.id) }}"
+        action="{{ url_for('build.cleanup_repository', build_id=build.id) }}"
         method="POST"
         class="d-inline"
       >
