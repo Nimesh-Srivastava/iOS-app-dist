@@ -284,7 +284,7 @@
           ></div>
 
           {% if builds %}
-          <div class="list-group list-group-flush">
+          <div id="builds-container" class="list-group list-group-flush">
             {% for build in builds %}
             <div
               class="list-group-item list-group-item-action p-3 {% if build.status in ['building', 'in_progress', 'queued'] %}build-in-progress{% endif %}"
@@ -592,7 +592,7 @@
               data.in_progress_count !== lastInProgressCount ||
               (data.latest_timestamp && data.latest_timestamp !== lastTimestamp)
             ) {
-              console.log("Build status changed! Refreshing page...");
+              console.log("Build status changed! Refreshing builds...");
 
               // Small visual indicator that refresh is happening
               const buildsCard = document.querySelector(".card-header .badge");
@@ -600,14 +600,132 @@
                 buildsCard.innerHTML =
                   '<i class="fas fa-spinner fa-spin me-1"></i> Refreshing...';
               }
+              
+              // Update our tracking variables
+              lastTotalCount = data.total_count;
+              lastInProgressCount = data.in_progress_count;
+              lastTimestamp = data.latest_timestamp;
 
-              // Refresh the page
-              window.location.reload();
+              // Refresh only the builds section
+              refreshBuilds();
             }
           })
           .catch((error) => {
             console.error("Error checking for build updates:", error);
           });
+      }
+      
+      // Function to refresh only the builds section
+      function refreshBuilds() {
+        fetch("/api/builds")
+          .then((response) => response.json())
+          .then((data) => {
+            if (data.builds) {
+              const buildsContainer = document.getElementById("builds-container");
+              if (!buildsContainer) return;
+              
+              if (data.builds.length === 0) {
+                buildsContainer.innerHTML = `
+                  <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i> No builds found.
+                  </div>
+                `;
+              } else {
+                let buildsHtml = '';
+                
+                data.builds.forEach(build => {
+                  const statusClass = getBuildStatusClass(build.status);
+                  const statusText = getBuildStatusText(build.status);
+                  const formattedDate = formatDate(build.start_time);
+                  
+                  buildsHtml += `
+                    <div class="card mb-3">
+                      <div class="card-header d-flex justify-content-between align-items-center">
+                        <div>
+                          <strong>${build.repository || 'Unknown Repository'}</strong>
+                          ${build.branch ? `<span class="text-muted">/ ${build.branch}</span>` : ''}
+                        </div>
+                        <span class="badge ${statusClass}">${statusText}</span>
+                      </div>
+                      <div class="card-body">
+                        <div class="d-flex justify-content-between mb-3">
+                          <div>
+                            <div class="text-muted small">
+                              <i class="fas fa-clock me-1"></i> ${formattedDate}
+                            </div>
+                            ${build.commit ? `
+                              <div class="text-muted small">
+                                <i class="fas fa-code-branch me-1"></i> ${build.commit.substring(0, 7)}
+                              </div>
+                            ` : ''}
+                          </div>
+                          <div class="text-end">
+                            <a href="/build/${build.id}/log" class="btn btn-sm btn-outline-secondary">
+                              <i class="fas fa-list-alt me-1"></i> View Log
+                            </a>
+                          </div>
+                        </div>
+                        
+                        ${build.description ? `
+                          <div class="build-description small mb-3 text-muted">
+                            ${build.description}
+                          </div>
+                        ` : ''}
+                        
+                        ${build.status === 'completed' && build.app_id ? `
+                          <div class="text-end">
+                            <a href="/app/${build.app_id}" class="btn btn-sm btn-primary">
+                              <i class="fas fa-external-link-alt me-1"></i> View App
+                            </a>
+                          </div>
+                        ` : ''}
+                      </div>
+                    </div>
+                  `;
+                });
+                
+                buildsContainer.innerHTML = buildsHtml;
+                
+                // Update badge count
+                const buildsCard = document.querySelector(".card-header .badge");
+                if (buildsCard) {
+                  buildsCard.innerHTML = `${data.builds.length} Build${data.builds.length !== 1 ? 's' : ''}`;
+                }
+              }
+            }
+          })
+          .catch((error) => {
+            console.error("Error refreshing builds:", error);
+          });
+      }
+      
+      // Helper functions for formatting build data
+      function getBuildStatusClass(status) {
+        switch (status) {
+          case 'completed': return 'bg-success';
+          case 'building': return 'bg-primary pulse-animation';
+          case 'queued': return 'bg-warning';
+          case 'failed': return 'bg-danger';
+          case 'cancelled': return 'bg-secondary';
+          default: return 'bg-secondary';
+        }
+      }
+      
+      function getBuildStatusText(status) {
+        switch (status) {
+          case 'completed': return 'Completed';
+          case 'building': return 'Building';
+          case 'queued': return 'Queued';
+          case 'failed': return 'Failed';
+          case 'cancelled': return 'Cancelled';
+          default: return status.charAt(0).toUpperCase() + status.slice(1);
+        }
+      }
+      
+      function formatDate(dateString) {
+        if (!dateString) return 'Unknown';
+        const date = new Date(dateString);
+        return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
       }
 
       // If there are builds in progress, check more frequently (every 3 seconds)
