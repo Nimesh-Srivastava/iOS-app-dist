@@ -1,4 +1,102 @@
 {% extends 'base.html' %} {% block title %}Build Log - AppCenter{% endblock %}
+
+{% block head %}
+<style>
+  /* Build log styling */
+  .build-log {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: #e6e6e6;
+    background-color: #1a1a1a;
+    border-radius: 0 0 4px 4px;
+  }
+
+  /* Terminal-like styling */
+  .log-container {
+    border-radius: 0 0 4px 4px;
+    overflow: hidden;
+    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.2);
+  }
+
+  /* Log line highlighting */
+  .build-log .line-error {
+    color: #ff6b6b;
+    background-color: rgba(255, 0, 0, 0.1);
+  }
+
+  .build-log .line-warning {
+    color: #feca57;
+    background-color: rgba(255, 193, 7, 0.1);
+  }
+
+  .build-log .line-success {
+    color: #1dd1a1;
+    background-color: rgba(40, 167, 69, 0.1);
+  }
+
+  /* Status badges */
+  .status-badge {
+    display: inline-block;
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 50px;
+    font-weight: 600;
+  }
+
+  .status-completed {
+    background-color: rgba(40, 167, 69, 0.2);
+    color: #28a745;
+  }
+
+  .status-failed {
+    background-color: rgba(220, 53, 69, 0.2);
+    color: #dc3545;
+  }
+
+  .status-building, .status-queued {
+    background-color: rgba(255, 193, 7, 0.2);
+    color: #ffc107;
+  }
+
+  .status-cancelled {
+    background-color: rgba(108, 117, 125, 0.2);
+    color: #6c757d;
+  }
+
+  /* Pulse animation for running builds */
+  .pulse-animation {
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.6;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+
+  /* Scrollbar styling */
+  .build-log::-webkit-scrollbar {
+    width: 10px;
+  }
+
+  .build-log::-webkit-scrollbar-track {
+    background: #2d2d2d;
+  }
+
+  .build-log::-webkit-scrollbar-thumb {
+    background-color: #444;
+    border-radius: 20px;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container">
   <!-- Back button and build information -->
@@ -218,12 +316,20 @@
         </div>
       </div>
 
-      <pre
-        class="build-log mb-0 px-4 py-3"
-        style="max-height: 600px; overflow-y: auto"
-      >
-{{ build.log_content }}</pre
-      >
+      <div class="log-container bg-dark">
+        <div class="d-flex justify-content-between align-items-center px-4 py-2 border-bottom border-secondary">
+          <h6 class="mb-0 text-light"><i class="fas fa-terminal me-2"></i>Build Log Output</h6>
+          <div>
+            <a href="{{ url_for('build.download_build_log', build_id=build.id) }}" class="btn btn-sm btn-outline-light">
+              <i class="fas fa-download me-1"></i> Download Full Log
+            </a>
+          </div>
+        </div>
+        <pre
+          class="build-log mb-0 px-4 py-3 text-light"
+          style="max-height: 600px; overflow-y: auto; background-color: #1a1a1a; font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace; font-size: 0.875rem; line-height: 1.6; white-space: pre-wrap; word-break: break-word;"
+        >{{ build.log_content|safe }}</pre>
+      </div>
     </div>
 
     {% if build.status == 'building' or build.status == 'in_progress' or
@@ -248,4 +354,44 @@ build.status == 'in_progress' or build.status == 'queued' %}
     window.location.reload();
   }, 5000);
 </script>
-{% endif %} {% endblock %}
+{% endif %}
+
+<script>
+  // Enhanced log display with timestamp highlighting
+  document.addEventListener('DOMContentLoaded', function() {
+    const logContainer = document.querySelector('.build-log');
+    if (!logContainer) return;
+    
+    // Add line numbers to log
+    const lines = logContainer.innerHTML.split('\n');
+    let numberedLines = [];
+    
+    for (let i = 0; i < lines.length; i++) {
+      // Skip empty lines
+      if (lines[i].trim() === '') {
+        numberedLines.push('');
+        continue;
+      }
+      
+      // Highlight timestamps (common formats like [HH:MM:SS], YYYY-MM-DD, etc.)
+      let line = lines[i].replace(
+        /(\[\d{2}:\d{2}:\d{2}\]|\d{4}-\d{2}-\d{2}|\d{2}:\d{2}:\d{2})/g,
+        '<span style="color: #54a0ff;">$1</span>'
+      );
+      
+      // Add color to command/tool names
+      line = line.replace(
+        /\b(git|xcodebuild|pod|npm|yarn|bash|sh|curl|wget)\b/g,
+        '<span style="color: #ff9f43;">$1</span>'
+      );
+      
+      // Add subtle line numbers
+      numberedLines.push(
+        `<span style="display: inline-block; width: 40px; color: #666; user-select: none; text-align: right; margin-right: 10px;">${i+1}</span>${line}`
+      );
+    }
+    
+    logContainer.innerHTML = numberedLines.join('\n');
+  });
+</script>
+{% endblock %}

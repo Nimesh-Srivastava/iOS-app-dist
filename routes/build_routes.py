@@ -175,8 +175,33 @@ def build_log(build_id):
     if build.get('status') == 'completed' and build.get('app_info'):
         app_info = build.get('app_info')
     
-    # Add log content to the build object for the template
-    build['log_content'] = build.get('log', 'No log content available')
+    # Get raw log content
+    log_content = build.get('log', 'No log content available')
+    
+    # Process log content to add HTML classes for better formatting
+    if log_content:
+        processed_lines = []
+        for line in log_content.split('\n'):
+            line = line.rstrip()
+            # Skip empty lines
+            if not line:
+                processed_lines.append('')
+                continue
+                
+            # Add classes for different log line types
+            if any(error_term in line.lower() for error_term in ['error', 'exception', 'fail', 'failed']):
+                processed_lines.append(f'<span class="line-error">{line}</span>')
+            elif any(warning_term in line.lower() for warning_term in ['warning', 'warn']):
+                processed_lines.append(f'<span class="line-warning">{line}</span>')
+            elif any(success_term in line.lower() for success_term in ['success', 'completed', 'built', 'installed']):
+                processed_lines.append(f'<span class="line-success">{line}</span>')
+            else:
+                processed_lines.append(line)
+                
+        # Add log content to the build object for the template with HTML formatting
+        build['log_content'] = '\n'.join(processed_lines)
+    else:
+        build['log_content'] = 'No log content available'
         
     return render_template('build_log.html', build=build, app_info=app_info)
 
