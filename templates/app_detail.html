@@ -180,13 +180,18 @@
 					{% if app.release_notes %}
 					<div class="mt-4">
 						<h6 class="mb-2"><i class="fas fa-clipboard-list me-2"></i>What's New</h6>
-						<button 
-							class="btn btn-sm btn-outline-secondary" 
-							type="button" 
-							data-bs-toggle="modal" 
-							data-bs-target="#mainReleaseNotesModal">
-							<i class="fas fa-clipboard-list me-2"></i>View Release Notes
-						</button>
+						<div class="alert alert-light border py-2 mb-2">
+							<div class="text-pre-wrap small release-notes-preview">{{ app.release_notes }}</div>
+						</div>
+						<div class="text-end">
+							<button 
+								class="btn btn-sm btn-link p-0 text-decoration-none" 
+								type="button" 
+								data-bs-toggle="modal" 
+								data-bs-target="#mainReleaseNotesModal">
+								<i class="fas fa-external-link-alt me-1"></i>Show more
+							</button>
+						</div>
 						
 						<!-- Main App Release Notes Modal -->
 						<div class="modal fade" id="mainReleaseNotesModal" tabindex="-1" aria-labelledby="mainReleaseNotesModalLabel" aria-hidden="true">
@@ -688,6 +693,24 @@
 			replyForm.style.display = 'none';
 		}
 	}
+	
+	// Function to limit release notes preview to 5 lines
+	document.addEventListener('DOMContentLoaded', function() {
+		const releaseNotesPreview = document.querySelector('.release-notes-preview');
+		if (releaseNotesPreview) {
+			const text = releaseNotesPreview.textContent;
+			const lines = text.split('\n');
+			
+			if (lines.length > 5) {
+				// Only show first 5 lines
+				releaseNotesPreview.textContent = lines.slice(0, 5).join('\n') + '...';
+				document.querySelector('.btn-link').style.display = 'inline-block';
+			} else {
+				// If 5 or fewer lines, hide the "Show more" button
+				document.querySelector('.btn-link').style.display = 'none';
+			}
+		}
+	});
 </script>
 {% endblock %}
 {% endblock %}
