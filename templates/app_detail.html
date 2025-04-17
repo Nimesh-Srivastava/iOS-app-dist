@@ -82,6 +82,24 @@
 		white-space: pre-wrap;
 		word-break: break-word;
 	}
+	/* Release notes collapsible styling */
+	.release-notes-btn {
+		font-size: 0.9rem;
+		width: 100%;
+		text-align: left;
+		background-color: #f8f9fa;
+		border-color: #dee2e6;
+	}
+	.release-notes-btn:focus, .release-notes-btn:active {
+		box-shadow: none !important;
+	}
+	.release-notes-content {
+		padding: 0.75rem;
+		background-color: #f8f9fa;
+		border: 1px solid #dee2e6;
+		border-top: none;
+		border-radius: 0 0 0.25rem 0.25rem;
+	}
 </style>
 {% endblock %}
 
@@ -162,8 +180,19 @@
 					{% if app.release_notes %}
 					<div class="mt-4">
 						<h6 class="mb-2"><i class="fas fa-clipboard-list me-2"></i>What's New</h6>
-						<div class="alert alert-light border py-2">
-							<p class="mb-0 small text-pre-wrap">{{ app.release_notes }}</p>
+						<button 
+							class="btn btn-sm release-notes-btn mb-0 rounded-bottom-0" 
+							type="button" 
+							data-bs-toggle="collapse" 
+							data-bs-target="#mainReleaseNotes" 
+							aria-expanded="false" 
+							aria-controls="mainReleaseNotes">
+							<i class="fas fa-chevron-down me-2"></i>View Release Notes
+						</button>
+						<div class="collapse" id="mainReleaseNotes">
+							<div class="release-notes-content">
+								<p class="mb-0 small text-pre-wrap">{{ app.release_notes }}</p>
+							</div>
 						</div>
 					</div>
 					{% endif %}
@@ -329,8 +358,21 @@
 								<tr>
 									<td colspan="4" class="border-0 py-0">
 										<div class="alert alert-light mb-0 rounded-0 py-2">
-											<h6 class="mb-1 text-secondary"><i class="fas fa-clipboard-list me-2"></i>Release Notes:</h6>
-											<p class="mb-0 small text-pre-wrap">{{ version.release_notes }}</p>
+											<h6 class="mb-1 text-secondary d-flex justify-content-between align-items-center">
+												<span><i class="fas fa-clipboard-list me-2"></i>Release Notes:</span>
+												<button 
+													class="btn btn-sm btn-outline-secondary py-0 px-2" 
+													type="button" 
+													data-bs-toggle="collapse" 
+													data-bs-target="#releaseNotes{{ loop.index }}" 
+													aria-expanded="false" 
+													aria-controls="releaseNotes{{ loop.index }}">
+													<i class="fas fa-chevron-down small"></i>
+												</button>
+											</h6>
+											<div class="collapse" id="releaseNotes{{ loop.index }}">
+												<p class="mb-0 small text-pre-wrap">{{ version.release_notes }}</p>
+											</div>
 										</div>
 									</td>
 								</tr>
