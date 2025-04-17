@@ -209,11 +209,28 @@ def app_detail(app_id):
     if app.get('creation_date'):
         app['formatted_creation_date'] = format_datetime(app.get('creation_date'))
     
-    # Format dates in versions
+    # Format dates in versions and add size information
     if app.get('versions'):
         for version in app.get('versions', []):
             if version.get('upload_date'):
                 version['formatted_upload_date'] = format_datetime(version.get('upload_date'))
+            
+            # Add size information for each version
+            file_id = version.get('file_id')
+            if file_id:
+                file_data = db.get_file(file_id)
+                if file_data:
+                    version['size'] = file_data.get('size', 0)
+                else:
+                    version['size'] = 0
+    
+    # Add size information for the main app if not present
+    if not app.get('size') and app.get('file_id'):
+        file_data = db.get_file(app.get('file_id'))
+        if file_data:
+            app['size'] = file_data.get('size', 0)
+        else:
+            app['size'] = 0
     
     return render_template('app_detail.html', 
                            app=app, 

@@ -375,8 +375,11 @@
 										{{ version.formatted_upload_date }}
 									</td>
 									<td>
-										{{ (version.size / 1024 / 1024)|round(2)
-										}} MB
+										{% if version.size and version.size > 0 %}
+										{{ (version.size / 1024 / 1024)|round(2) }} MB
+										{% else %}
+										Unknown
+										{% endif %}
 										{% set version_comments = comments_by_version.get(version.version, []) %}
 										{% if version_comments %}
 										<span class="badge bg-secondary rounded-pill ms-2" title="Comments">
