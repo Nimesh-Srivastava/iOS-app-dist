@@ -169,8 +169,7 @@ def edit_app(app_id):
         # Update app data
         app['name'] = request.form['name']
         app['bundle_id'] = request.form['bundle_id']
-        app['version'] = request.form['version']
-        app['build_number'] = request.form['build_number']
+        # Version and build number should not be updated from form - they're set from latest version in history
         app['description'] = request.form['app_description']
         
         # Save to database
