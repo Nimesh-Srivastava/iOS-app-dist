@@ -102,8 +102,11 @@
 	}
 	/* Release notes preview */
 	.release-notes-preview {
-		max-height: 110px; /* Approximately 5 lines */
-		overflow: hidden;
+		display: -webkit-box; /* For WebKit browsers */
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 5; /* For WebKit browsers */
+		overflow: hidden; /* Hide overflow */
+		max-height: 7em; /* Approximate height for 5 lines */
 		text-align: left;
 		line-height: 1.4;
 		margin-bottom: 0;
@@ -115,6 +118,14 @@
 		border-radius: 0.25rem;
 		padding: 0.75rem;
 		margin-bottom: 0.5rem;
+	}
+	/* Modal release notes */
+	.release-notes-modal-content {
+		white-space: pre-wrap;
+		word-break: break-word;
+		text-align: left;
+		font-size: 0.9rem;
+		line-height: 1.5;
 	}
 </style>
 {% endblock %}
@@ -717,17 +728,24 @@
 		const showMoreButton = document.getElementById('showMoreButton');
 		
 		if (releaseNotesPreview && showMoreButton) {
-			// Check if content height exceeds the max-height (5 lines)
-			if (releaseNotesPreview.scrollHeight > releaseNotesPreview.clientHeight) {
-				// Add ellipsis indicator at the end
-				releaseNotesPreview.innerHTML = releaseNotesPreview.innerHTML.trim() + '<span style="color: #6c757d;">...</span>';
-				// Show the 'Show more' button
+			// Calculate line height and container height to determine number of lines
+			const lineHeight = parseInt(window.getComputedStyle(releaseNotesPreview).lineHeight);
+			const containerHeight = releaseNotesPreview.offsetHeight;
+			const totalLines = releaseNotesPreview.scrollHeight / lineHeight;
+			
+			if (totalLines > 5) {
+				// If more than 5 lines, show the button
 				showMoreButton.style.display = 'inline-block';
 			} else {
-				// If content fits within 5 lines, hide the button
+				// If 5 or fewer lines, hide the button
 				showMoreButton.style.display = 'none';
 			}
 		}
+		
+		// Make sure all modal content preserves formatting
+		document.querySelectorAll('.text-pre-wrap').forEach(element => {
+			element.classList.add('release-notes-modal-content');
+		});
 	});
 </script>
 {% endblock %}
