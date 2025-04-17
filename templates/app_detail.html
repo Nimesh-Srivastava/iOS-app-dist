@@ -213,41 +213,10 @@
 						</a>
 					</div>
 					
-					{% if app.release_notes %}
-					<div class="mt-4">
-						<h6 class="mb-2"><i class="fas fa-clipboard-list me-2"></i>What's New</h6>
-						<div class="release-notes-container">
-							<div class="text-pre-wrap small release-notes-preview" id="releaseNotesPreview">{{ app.release_notes }}</div>
-						</div>
-						<div class="text-end">
-							<button 
-								id="showMoreButton"
-								class="btn btn-sm btn-link p-0 text-decoration-none" 
-								type="button" 
-								data-bs-toggle="modal" 
-								data-bs-target="#mainReleaseNotesModal">
-								<i class="fas fa-external-link-alt me-1"></i>Show more
-							</button>
-						</div>
-						
-						<!-- Main App Release Notes Modal -->
-						<div class="modal fade" id="mainReleaseNotesModal" tabindex="-1" aria-labelledby="mainReleaseNotesModalLabel" aria-hidden="true">
-							<div class="modal-dialog">
-								<div class="modal-content">
-									<div class="modal-header">
-										<h5 class="modal-title" id="mainReleaseNotesModalLabel">
-											<i class="fas fa-clipboard-list me-2"></i> Release Notes for {{ app.name }}
-										</h5>
-										<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-									</div>
-									<div class="modal-body">
-										<div class="text-pre-wrap" style="text-align: left;">{{ app.release_notes }}</div>
-									</div>
-									<div class="modal-footer">
-										<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-									</div>
-								</div>
-							</div>
+					{% if app.description %}
+					<div class="mt-3">
+						<div class="app-description-container">
+							<p class="small text-muted mb-0" style="text-align: left;">{{ app.description }}</p>
 						</div>
 					</div>
 					{% endif %}

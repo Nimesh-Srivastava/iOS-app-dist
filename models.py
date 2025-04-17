@@ -37,7 +37,7 @@ def add_app_version(app_id, file_data, filename, version=None, release_notes=Non
                 'filename': app.get('filename'),
                 'file_id': app.get('file_id'),
                 'upload_date': app.get('upload_date'),
-                'release_notes': app.get('release_notes')
+                'release_notes': app.get('release_notes')  # Preserve version release notes
             }
             
             # Only add if it doesn't exist already
@@ -46,14 +46,26 @@ def add_app_version(app_id, file_data, filename, version=None, release_notes=Non
                      for v in old_versions):
                 old_versions.append(old_version)
         
+        # Create new version entry with current release notes
+        new_version = {
+            'version': version or app_info['version'],
+            'build_number': app_info['build_number'],
+            'filename': filename,
+            'file_id': app_info['file_id'],
+            'upload_date': app_info['upload_date'],
+            'release_notes': release_notes
+        }
+        
         # Update app with new values
         app['version'] = version or app_info['version']
         app['build_number'] = app_info['build_number']
         app['filename'] = filename
         app['file_id'] = app_info['file_id']
         app['upload_date'] = app_info['upload_date']
+        
+        # Add the new version to versions list
+        old_versions.append(new_version)
         app['versions'] = old_versions
-        app['release_notes'] = release_notes
         
         # Save the file with the new file_id
         db.save_file(app_info['file_id'], filename, file_data)
@@ -66,8 +78,18 @@ def add_app_version(app_id, file_data, filename, version=None, release_notes=Non
         new_app = app_info.copy()
         if version:
             new_app['version'] = version
-        new_app['versions'] = []
-        new_app['release_notes'] = release_notes
+            
+        # Create first version entry
+        first_version = {
+            'version': version or app_info['version'],
+            'build_number': app_info['build_number'],
+            'filename': filename,
+            'file_id': app_info['file_id'],
+            'upload_date': app_info['upload_date'],
+            'release_notes': release_notes
+        }
+        
+        new_app['versions'] = [first_version]
         
         # Save the file
         db.save_file(app_info['file_id'], filename, file_data)

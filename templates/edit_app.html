@@ -116,16 +116,17 @@ block content %}
 					</div>
 
 					<div class="mb-3">
-						<label for="release_notes" class="form-label">Release Notes</label>
+						<label for="app_description" class="form-label">App Description</label>
 						<textarea
 							class="form-control"
-							id="release_notes"
-							name="release_notes"
-							rows="10"
+							id="app_description"
+							name="app_description"
+							rows="2"
+							maxlength="200"
 							required
-						>{{ app.release_notes or '' }}</textarea>
+						>{{ app.description or '' }}</textarea>
 						<div class="form-text">
-							Describe what's new in this version
+							Brief description of the app (max 2 lines)
 						</div>
 					</div>
 

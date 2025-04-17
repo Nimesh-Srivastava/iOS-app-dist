@@ -58,6 +58,9 @@ def upload():
             flash('Release notes are required')
             return redirect(request.url)
         
+        # Get app description (optional)
+        app_description = request.form.get('app_description', '').strip()
+        
         if file and allowed_file(file.filename):
             # Save the file data
             file_data = file.read()
@@ -80,8 +83,9 @@ def upload():
                     
                     # Set owner to current user
                     app_info['owner'] = session.get('username')
-                    # Add release notes
-                    app_info['release_notes'] = release_notes
+                    # Set description (if provided)
+                    if app_description:
+                        app_info['description'] = app_description
                     
                     # Save the file
                     db.save_file(app_info['file_id'], filename, file_data)
@@ -167,7 +171,7 @@ def edit_app(app_id):
         app['bundle_id'] = request.form['bundle_id']
         app['version'] = request.form['version']
         app['build_number'] = request.form['build_number']
-        app['release_notes'] = request.form['release_notes']
+        app['description'] = request.form['app_description']
         
         # Save to database
         db.save_app(app)
