@@ -114,11 +114,20 @@ def upload_version(app_id):
         flash('You do not have permission to upload a new version for this app')
         return redirect(url_for('app.app_detail', app_id=app_id))
     
-    # Format dates for display
+    # Format dates for display and add size information for each version
     if app.get('versions'):
         for version in app.get('versions', []):
             if version.get('upload_date'):
                 version['formatted_upload_date'] = format_datetime(version.get('upload_date'))
+            
+            # Add size information for each version
+            file_id = version.get('file_id')
+            if file_id:
+                file_data = db.get_file(file_id)
+                if file_data:
+                    version['size'] = file_data.get('size', 0)
+                else:
+                    version['size'] = 0
     
     if request.method == 'POST':
         # Check if the post request has the file part
