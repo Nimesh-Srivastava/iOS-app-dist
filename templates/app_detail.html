@@ -105,11 +105,12 @@
 		display: -webkit-box; /* For WebKit browsers */
 		-webkit-box-orient: vertical;
 		-webkit-line-clamp: 5; /* For WebKit browsers */
+		line-clamp: 5; /* Standard property */
 		overflow: hidden; /* Hide overflow */
+		text-overflow: ellipsis; /* Add ellipsis for overflow */
 		max-height: 7em; /* Approximate height for 5 lines */
 		text-align: left;
 		line-height: 1.4;
-		margin-bottom: 0;
 	}
 	/* Fallback for non-WebKit browsers */
 	.release-notes-preview {
