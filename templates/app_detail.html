@@ -181,17 +181,30 @@
 					<div class="mt-4">
 						<h6 class="mb-2"><i class="fas fa-clipboard-list me-2"></i>What's New</h6>
 						<button 
-							class="btn btn-sm release-notes-btn mb-0 rounded-bottom-0" 
+							class="btn btn-sm btn-outline-secondary" 
 							type="button" 
-							data-bs-toggle="collapse" 
-							data-bs-target="#mainReleaseNotes" 
-							aria-expanded="false" 
-							aria-controls="mainReleaseNotes">
-							<i class="fas fa-chevron-down me-2"></i>View Release Notes
+							data-bs-toggle="modal" 
+							data-bs-target="#mainReleaseNotesModal">
+							<i class="fas fa-clipboard-list me-2"></i>View Release Notes
 						</button>
-						<div class="collapse" id="mainReleaseNotes">
-							<div class="release-notes-content">
-								<p class="mb-0 small text-pre-wrap">{{ app.release_notes }}</p>
+						
+						<!-- Main App Release Notes Modal -->
+						<div class="modal fade" id="mainReleaseNotesModal" tabindex="-1" aria-labelledby="mainReleaseNotesModalLabel" aria-hidden="true">
+							<div class="modal-dialog">
+								<div class="modal-content">
+									<div class="modal-header">
+										<h5 class="modal-title" id="mainReleaseNotesModalLabel">
+											<i class="fas fa-clipboard-list me-2"></i> Release Notes for {{ app.name }}
+										</h5>
+										<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+									</div>
+									<div class="modal-body">
+										<div class="text-pre-wrap">{{ app.release_notes }}</div>
+									</div>
+									<div class="modal-footer">
+										<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+									</div>
+								</div>
 							</div>
 						</div>
 					</div>
@@ -344,49 +357,45 @@
 										{% endif %}
 									</td>
 									<td class="text-end">
-										<div class="d-grid gap-2">
-											<a
-												href="{{ url_for('app.download_app', app_id=app.id, filename=version.filename) }}"
-												class="btn btn-sm btn-outline-primary"
-											>
-												<i class="fas fa-download me-1"></i>
-												Download
-											</a>
-											{% if app.release_notes %}
-											<button 
-												class="btn btn-sm btn-outline-secondary" 
-												type="button" 
-												data-bs-toggle="modal" 
-												data-bs-target="#releaseNotesModal">
-												<i class="fas fa-info-circle me-1"></i> View Release Notes
-											</button>
-											{% endif %}
-										</div>
+										<a
+											href="{{ url_for('app.download_app', app_id=app.id, filename=version.filename) }}"
+											class="btn btn-sm btn-outline-primary"
+										>
+											<i class="fas fa-download me-1"></i>
+											Download
+										</a>
+										{% if version.release_notes %}
+										<button
+											type="button"
+											class="btn btn-sm btn-outline-secondary ms-1"
+											data-bs-toggle="modal"
+											data-bs-target="#releaseNotesModal{{ loop.index }}"
+										>
+											<i class="fas fa-clipboard-list"></i>
+										</button>
+										{% endif %}
 									</td>
 								</tr>
-								<!-- Release Notes Row -->
+								<!-- Release Notes Modal -->
 								{% if version.release_notes %}
-								<tr>
-									<td colspan="4" class="border-0 py-0">
-										<div class="alert alert-light mb-0 rounded-0 py-2">
-											<h6 class="mb-1 text-secondary d-flex justify-content-between align-items-center">
-												<span><i class="fas fa-clipboard-list me-2"></i>Release Notes:</span>
-												<button 
-													class="btn btn-sm btn-outline-secondary py-0 px-2" 
-													type="button" 
-													data-bs-toggle="collapse" 
-													data-bs-target="#releaseNotes{{ loop.index }}" 
-													aria-expanded="false" 
-													aria-controls="releaseNotes{{ loop.index }}">
-													<i class="fas fa-chevron-down small"></i>
-												</button>
-											</h6>
-											<div class="collapse" id="releaseNotes{{ loop.index }}">
-												<p class="mb-0 small text-pre-wrap">{{ version.release_notes }}</p>
+								<div class="modal fade" id="releaseNotesModal{{ loop.index }}" tabindex="-1" aria-labelledby="releaseNotesModalLabel{{ loop.index }}" aria-hidden="true">
+									<div class="modal-dialog">
+										<div class="modal-content">
+											<div class="modal-header">
+												<h5 class="modal-title" id="releaseNotesModalLabel{{ loop.index }}">
+													<i class="fas fa-clipboard-list me-2"></i> Release Notes for v{{ version.version }}
+												</h5>
+												<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+											</div>
+											<div class="modal-body">
+												<div class="text-pre-wrap">{{ version.release_notes }}</div>
+											</div>
+											<div class="modal-footer">
+												<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
 											</div>
 										</div>
-									</td>
-								</tr>
+									</div>
+								</div>
 								{% endif %}
 								<tr class="version-comments">
 									<td colspan="4" class="p-0">
@@ -661,26 +670,6 @@
 				>
 					Close
 				</button>
-			</div>
-		</div>
-	</div>
-</div>
-
-<!-- Release Notes Modal -->
-<div class="modal fade" id="releaseNotesModal" tabindex="-1" aria-labelledby="releaseNotesModalLabel" aria-hidden="true">
-	<div class="modal-dialog modal-lg">
-		<div class="modal-content">
-			<div class="modal-header">
-				<h5 class="modal-title" id="releaseNotesModalLabel">
-					<i class="fas fa-clipboard-list me-2"></i> Release Notes for {{ app.name }}
-				</h5>
-				<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-			</div>
-			<div class="modal-body">
-				<p class="mb-0 small text-pre-wrap">{{ app.release_notes }}</p>
-			</div>
-			<div class="modal-footer">
-				<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
 			</div>
 		</div>
 	</div>
