@@ -111,6 +111,14 @@
 		line-height: 1.4;
 		margin-bottom: 0;
 	}
+	/* Fallback for non-WebKit browsers */
+	.release-notes-preview {
+		display: block; /* Fallback display */
+		max-height: 7em; /* Approximate height for 5 lines */
+		overflow: hidden; /* Hide overflow */
+		text-align: left;
+		line-height: 1.4;
+	}
 	.release-notes-container {
 		text-align: left;
 		background-color: #f8f9fa;
