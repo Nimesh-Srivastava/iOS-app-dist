@@ -386,6 +386,13 @@ def share_app(app_id):
             reference_type='app',
             from_user=current_username
         )
+        
+        # Send app refresh notification to all users with access
+        try:
+            from routes.notification_routes import send_app_refresh_notification
+            send_app_refresh_notification(app_id, 'share')
+        except Exception as e:
+            print(f"Error sending refresh notification: {e}")
     else:
         flash(f'Error sharing app: {message}')
         
@@ -412,6 +419,13 @@ def unshare_app(app_id, username):
             reference_type='app',
             from_user=current_username
         )
+        
+        # Send app refresh notification to all users with access
+        try:
+            from routes.notification_routes import send_app_refresh_notification
+            send_app_refresh_notification(app_id, 'unshare')
+        except Exception as e:
+            print(f"Error sending refresh notification: {e}")
     else:
         flash(f'Error removing share: {message}')
         
@@ -491,6 +505,13 @@ def add_comment(app_id):
                     from_user=current_username
                 )
         
+        # Send app refresh notification to all users with access
+        try:
+            from routes.notification_routes import send_app_refresh_notification
+            send_app_refresh_notification(app_id, 'comment_add')
+        except Exception as e:
+            print(f"Error sending refresh notification: {e}")
+        
         flash('Comment added successfully')
     else:
         flash(f'Error adding comment: {result.get("message")}')
@@ -509,6 +530,13 @@ def delete_comment(app_id, comment_id):
     
     if success:
         flash('Comment deleted successfully')
+        
+        # Send app refresh notification to all users with access
+        try:
+            from routes.notification_routes import send_app_refresh_notification
+            send_app_refresh_notification(app_id, 'comment_delete')
+        except Exception as e:
+            print(f"Error sending refresh notification: {e}")
     else:
         flash('Error deleting comment. You can only delete your own comments.')
     

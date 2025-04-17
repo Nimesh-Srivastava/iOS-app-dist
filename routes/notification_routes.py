@@ -22,19 +22,31 @@ def get_queue_for_user(user_id):
             notification_queues[user_id] = queue.Queue()
         return notification_queues[user_id]
 
-def send_notification_to_user(user_id, notification):
-    """Send a notification to a specific user's queue"""
-    if not user_id:
+def send_notification_to_user(username, notification):
+    """
+    Send a notification to a specific user's queue
+    
+    Args:
+        username (str): Username to notify
+        notification (dict): Notification data
+        
+    Returns:
+        bool: True if notification was sent, False otherwise
+    """
+    from database import db
+    user = db.get_user(username)
+    if not user:
         return False
         
-    with queue_lock:
-        if user_id in notification_queues:
-            try:
-                notification_queues[user_id].put_nowait(notification)
-                return True
-            except queue.Full:
-                return False
-    return False
+    try:
+        # Get the user ID or use username if ID is not available
+        user_id = user.get('id', username)
+        user_queue = get_queue_for_user(user_id)
+        user_queue.put(notification)
+        return True
+    except Exception as e:
+        print(f"Error sending notification to user {username}: {e}")
+        return False
 
 @notification_bp.route('/notifications')
 @login_required
@@ -355,11 +367,89 @@ def push_real_time_notification(username, notification):
         else:
             notification['time_ago'] = "just now"
     
-    # Get user's ID from username
+    # Use the new function that handles usernames
+    return send_notification_by_username(username, notification)
+
+def send_app_refresh_notification(app_id, refresh_type):
+    """
+    Send app refresh notification to all users who have access to the app
+    
+    Args:
+        app_id (str): ID of the app that needs to be refreshed
+        refresh_type (str): Type of refresh ('share', 'unshare', 'comment_add', 'comment_delete')
+    """
+    # Import here to avoid circular imports
+    from database import db
+    
+    # Get the app to check which users have access
+    app = db.get_app(app_id)
+    if not app:
+        return False
+        
+    # Get all users who have access to this app
+    shared_users = db.get_shared_users(app_id)
+    
+    # Add the owner to the list of users
+    if 'owner' in app:
+        shared_users.append(app['owner'])
+        
+    # Add admin users who have access to all apps
+    admin_users = [user['username'] for user in db.get_users() if user.get('role') == 'admin']
+    for admin in admin_users:
+        if admin not in shared_users:
+            shared_users.append(admin)
+    
+    # Create and send the refresh notification to each user
+    for username in shared_users:
+        notification = {
+            'type': 'app_refresh',
+            'app_id': app_id,
+            'app_name': app.get('name', 'Unknown App'),
+            'refresh_type': refresh_type,
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        # Send notification to user's queue by username
+        send_notification_by_username(username, notification)
+    
+    return True
+
+def send_notification_to_user(user_id, notification):
+    """Send a notification to a specific user's queue"""
+    if not user_id:
+        return False
+        
+    with queue_lock:
+        if user_id in notification_queues:
+            try:
+                notification_queues[user_id].put_nowait(notification)
+                return True
+            except queue.Full:
+                return False
+        return False
+
+def send_notification_by_username(username, notification):
+    """
+    Send a notification to a specific user's queue using their username
+    
+    Args:
+        username (str): Username to notify
+        notification (dict): Notification data
+        
+    Returns:
+        bool: True if notification was sent, False otherwise
+    """
     from database import db
     user = db.get_user(username)
     if not user:
         return False
         
-    # Send notification to user's queue
-    return send_notification_to_user(user.get('id'), notification) 
+    try:
+        # Get the user ID or use username if ID is not available
+        user_id = user.get('id', username)
+        user_queue = get_queue_for_user(user_id)
+        user_queue.put(notification)
+        return True
+    except Exception as e:
+        print(f"Error sending notification to user {username}: {e}")
+        return False 

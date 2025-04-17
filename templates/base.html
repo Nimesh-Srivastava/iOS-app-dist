@@ -842,10 +842,15 @@
 					const notification = JSON.parse(event.data);
 					console.log('Received real-time notification:', notification);
 					
-					// Update the notification counter and display
-					playNotificationSound();
-					showNotificationToast(notification);
-					getNotifications(); // Refresh the notifications dropdown
+					// Check for app refresh notifications
+					if (notification.type === 'app_refresh') {
+						handleAppRefreshNotification(notification);
+					} else {
+						// Regular notification - update counter and display toast
+						playNotificationSound();
+						showNotificationToast(notification);
+						getNotifications(); // Refresh the notifications dropdown
+					}
 				});
 				
 				notificationEventSource.addEventListener('error', function(event) {
@@ -1192,6 +1197,21 @@
 				.catch(error => {
 					console.error("Error deleting notification:", error);
 				});
+			}
+			
+			// Handler for app refresh notifications
+			function handleAppRefreshNotification(notification) {
+				// Check if we're on an app detail page and it matches the app_id
+				const currentPath = window.location.pathname;
+				const appDetailRegex = /\/app\/([a-zA-Z0-9-]+)/;
+				const match = currentPath.match(appDetailRegex);
+				
+				if (match && match[1] === notification.app_id) {
+					console.log(`Refreshing app page for ${notification.refresh_type} event`);
+					
+					// Reload the page to reflect the changes
+					window.location.reload();
+				}
 			}
 		</script>
 		{% endif %}
