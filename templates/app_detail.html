@@ -260,6 +260,18 @@
 						</form>
 					</div>
 					{% endif %}
+					
+					{% if g.user and g.user.role in ['admin', 'developer'] and (g.user.role == 'admin' or app.owner == g.user.username) %}
+					<hr class="my-4" />
+					<div class="d-grid">
+						<a
+							href="{{ url_for('app.upload_version', app_id=app.id) }}"
+							class="btn btn-success"
+						>
+							<i class="fas fa-upload me-2"></i> Upload New Version
+						</a>
+					</div>
+					{% endif %}
 				</div>
 			</div>
 

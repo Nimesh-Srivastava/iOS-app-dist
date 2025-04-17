@@ -1,0 +1,140 @@
+{% extends 'base.html' %} {% block title %}Upload New Version - {{ app.name }}{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-10 col-lg-8">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <div>
+        <h1 class="fw-bold mb-1">Upload New Version</h1>
+        <p class="text-muted mb-0">
+          Update {{ app.name }} with a new version
+        </p>
+        <p class="text-muted small">
+          Current version: <span class="fw-semibold">v{{ app.version }}</span> 
+          ({{ app.build_number }})
+        </p>
+      </div>
+      <a href="{{ url_for('app.app_detail', app_id=app.id) }}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left me-2"></i>Back to App Details
+      </a>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-white py-3">
+        <div class="d-flex align-items-center">
+          <img src="{{ app.icon }}" alt="{{ app.name }}" class="me-3" style="width: 40px; height: 40px; border-radius: 8px;">
+          <h5 class="mb-0">{{ app.name }}</h5>
+        </div>
+      </div>
+      <div class="card-body p-4">
+        <form
+          action="{{ url_for('app.upload_version', app_id=app.id) }}"
+          method="post"
+          enctype="multipart/form-data"
+        >
+          <input type="hidden" name="app_id" value="{{ app.id }}">
+
+          <div class="mb-3">
+            <label for="app_version" class="form-label">New Version</label>
+            <div class="input-group">
+              <span class="input-group-text"
+                ><i class="fas fa-code-branch"></i
+              ></span>
+              <input
+                type="text"
+                class="form-control"
+                id="app_version"
+                name="version"
+                placeholder="Leave blank to extract from IPA"
+              />
+            </div>
+            <div class="form-text">
+              Optional, will be extracted from IPA if not provided
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label for="release_notes" class="form-label">Release Notes</label>
+            <div class="input-group">
+              <span class="input-group-text"
+                ><i class="fas fa-clipboard-list"></i
+              ></span>
+              <textarea
+                class="form-control"
+                id="release_notes"
+                name="release_notes"
+                rows="5"
+                placeholder="What's new in this version?"
+                required
+              ></textarea>
+            </div>
+            <div class="form-text">
+              Describe the changes, new features, or fixes in this version
+            </div>
+          </div>
+
+          <div class="mb-4">
+            <label for="file" class="form-label">IPA File</label>
+            <div class="input-group">
+              <span class="input-group-text"
+                ><i class="fas fa-file-upload"></i
+              ></span>
+              <input
+                type="file"
+                class="form-control"
+                id="file"
+                name="file"
+                required
+                accept=".ipa"
+              />
+            </div>
+            <div class="form-text">
+              Select the new iOS application (.ipa) file for version {{ app.version }}
+            </div>
+          </div>
+
+          <div class="d-grid">
+            <button type="submit" class="btn btn-success">
+              <i class="fas fa-cloud-upload-alt me-2"></i>Upload New Version
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white py-3">
+        <h5 class="mb-0">
+          <i class="fas fa-history me-2"></i>Version History
+        </h5>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead>
+              <tr>
+                <th>Version</th>
+                <th>Build</th>
+                <th>Upload Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for version in app.versions|sort(attribute='upload_date', reverse=true) %}
+              <tr>
+                <td>
+                  <span class="fw-semibold">{{ version.version }}</span>
+                  {% if loop.first %}
+                  <span class="badge bg-success ms-2">Latest</span>
+                  {% endif %}
+                </td>
+                <td>{{ version.build_number }}</td>
+                <td>{{ version.formatted_upload_date }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %} 

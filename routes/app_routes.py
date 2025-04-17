@@ -65,34 +65,27 @@ def upload():
             # Save the file data
             file_data = file.read()
             
-            # If this is a new version of an existing app
-            app_id = request.form.get('app_id')
-            version = request.form.get('version')
-            
-            # Store the file and create/update the app
+            # Store the file and create the app
             try:
                 filename = secure_filename(file.filename)
                 
-                if app_id:  # Update existing app
-                    app = add_app_version(app_id, file_data, filename, version, release_notes)
-                    flash(f'App {app["name"]} updated to version {app["version"]} ({app["build_number"]})')
-                else:  # New app
-                    # Extract app info and save
-                    from utils.file_utils import extract_app_info
-                    app_info = extract_app_info(file_data, filename)
-                    
-                    # Set owner to current user
-                    app_info['owner'] = session.get('username')
-                    # Set description (if provided)
-                    if app_description:
-                        app_info['description'] = app_description
-                    
-                    # Save the file
-                    db.save_file(app_info['file_id'], filename, file_data)
-                    
-                    # Save app to database
-                    db.save_app(app_info)
-                    flash(f'App {app_info["name"]} added')
+                # This route is only for new apps now
+                # Extract app info and save
+                from utils.file_utils import extract_app_info
+                app_info = extract_app_info(file_data, filename)
+                
+                # Set owner to current user
+                app_info['owner'] = session.get('username')
+                # Set description (if provided)
+                if app_description:
+                    app_info['description'] = app_description
+                
+                # Save the file
+                db.save_file(app_info['file_id'], filename, file_data)
+                
+                # Save app to database
+                db.save_app(app_info)
+                flash(f'App {app_info["name"]} added')
                     
                 return redirect(url_for('app.index'))
             
@@ -103,9 +96,71 @@ def upload():
             flash('Invalid file type. Only IPA files are allowed.')
             return redirect(request.url)
             
-    # Get apps for the select dropdown
-    apps = db.get_apps_for_user(session['username'])
-    return render_template('upload.html', apps=apps)
+    return render_template('upload.html')
+
+@app_bp.route('/upload_version/<app_id>', methods=['GET', 'POST'])
+@admin_or_developer_required
+def upload_version(app_id):
+    # Get app and verify access
+    app = db.get_app(app_id)
+    if not app:
+        flash('App not found')
+        return redirect(url_for('app.index'))
+    
+    # Make sure user is admin or the app owner
+    current_username = session.get('username')
+    current_user = db.get_user(current_username)
+    if not current_user or (current_user.get('role') != 'admin' and app.get('owner') != current_username):
+        flash('You do not have permission to upload a new version for this app')
+        return redirect(url_for('app.app_detail', app_id=app_id))
+    
+    # Format dates for display
+    if app.get('versions'):
+        for version in app.get('versions', []):
+            if version.get('upload_date'):
+                version['formatted_upload_date'] = format_datetime(version.get('upload_date'))
+    
+    if request.method == 'POST':
+        # Check if the post request has the file part
+        if 'file' not in request.files:
+            flash('No file part')
+            return redirect(request.url)
+            
+        file = request.files['file']
+        
+        # If the user does not select a file, browser submits an empty part without filename
+        if file.filename == '':
+            flash('No selected file')
+            return redirect(request.url)
+        
+        # Get release notes
+        release_notes = request.form.get('release_notes')
+        if not release_notes or release_notes.strip() == '':
+            flash('Release notes are required')
+            return redirect(request.url)
+        
+        if file and allowed_file(file.filename):
+            # Save the file data
+            file_data = file.read()
+            version = request.form.get('version')
+            
+            # Store the file and update the app
+            try:
+                filename = secure_filename(file.filename)
+                
+                # Update existing app with new version
+                updated_app = add_app_version(app_id, file_data, filename, version, release_notes)
+                flash(f'App {updated_app["name"]} updated to version {updated_app["version"]} ({updated_app["build_number"]})')
+                return redirect(url_for('app.app_detail', app_id=app_id))
+            
+            except Exception as e:
+                flash(f'Error processing file: {str(e)}')
+                return redirect(request.url)
+        else:
+            flash('Invalid file type. Only IPA files are allowed.')
+            return redirect(request.url)
+    
+    return render_template('upload_version.html', app=app)
 
 @app_bp.route('/app/<app_id>')
 def app_detail(app_id):
