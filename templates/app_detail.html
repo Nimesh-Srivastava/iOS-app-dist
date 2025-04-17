@@ -344,13 +344,24 @@
 										{% endif %}
 									</td>
 									<td class="text-end">
-										<a
-											href="{{ url_for('app.download_app', app_id=app.id, filename=version.filename) }}"
-											class="btn btn-sm btn-outline-primary"
-										>
-											<i class="fas fa-download me-1"></i>
-											Download
-										</a>
+										<div class="d-grid gap-2">
+											<a
+												href="{{ url_for('app.download_app', app_id=app.id, filename=version.filename) }}"
+												class="btn btn-sm btn-outline-primary"
+											>
+												<i class="fas fa-download me-1"></i>
+												Download
+											</a>
+											{% if app.release_notes %}
+											<button 
+												class="btn btn-sm btn-outline-secondary" 
+												type="button" 
+												data-bs-toggle="modal" 
+												data-bs-target="#releaseNotesModal">
+												<i class="fas fa-info-circle me-1"></i> View Release Notes
+											</button>
+											{% endif %}
+										</div>
 									</td>
 								</tr>
 								<!-- Release Notes Row -->
@@ -650,6 +661,26 @@
 				>
 					Close
 				</button>
+			</div>
+		</div>
+	</div>
+</div>
+
+<!-- Release Notes Modal -->
+<div class="modal fade" id="releaseNotesModal" tabindex="-1" aria-labelledby="releaseNotesModalLabel" aria-hidden="true">
+	<div class="modal-dialog modal-lg">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title" id="releaseNotesModalLabel">
+					<i class="fas fa-clipboard-list me-2"></i> Release Notes for {{ app.name }}
+				</h5>
+				<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+			</div>
+			<div class="modal-body">
+				<p class="mb-0 small text-pre-wrap">{{ app.release_notes }}</p>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
 			</div>
 		</div>
 	</div>
