@@ -1,5 +1,8 @@
 # iOS App Distribution Platform
 
+## Note
+View CHANGELOG.md for comparing v2.2 and v2.1
+
 This platform allows you to build and distribute iOS apps directly from GitHub repositories or by uploading IPA files.
 
 ## GitHub Actions Integration
