@@ -136,6 +136,46 @@ def change_password():
 @auth_bp.route('/account/profile-picture', methods=['POST'])
 @login_required
 def update_profile_picture():
+    # Check if we have cropped image data
+    cropped_image = request.form.get('cropped_image')
+    
+    if cropped_image and cropped_image.startswith('data:image'):
+        # Process cropped image data (base64)
+        try:
+            from PIL import Image
+            import io
+            import base64
+            
+            # Extract the actual image data from the data URL
+            image_format, image_data = cropped_image.split(';base64,')
+            image_data = base64.b64decode(image_data)
+            
+            # Open image from binary data
+            img = Image.open(io.BytesIO(image_data))
+            
+            # Convert to RGB if it's not
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+                
+            # Save as JPEG to a buffer
+            output = io.BytesIO()
+            img.save(output, format='JPEG', quality=85)
+            output.seek(0)
+            
+            # Store in database
+            db.update_user_profile_picture(
+                session.get('username'),
+                output.read(),
+                'image/jpeg'
+            )
+            
+            flash('Profile picture updated')
+            return redirect(url_for('auth.account_management'))
+        except Exception as e:
+            flash(f'Error processing cropped image: {str(e)}')
+            return redirect(url_for('auth.account_management'))
+    
+    # Fallback to direct file processing if no cropped data
     if 'profile_picture' not in request.files:
         flash('No file part')
         return redirect(url_for('auth.account_management'))
