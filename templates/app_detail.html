@@ -100,48 +100,21 @@
 		border-top: none;
 		border-radius: 0 0 0.25rem 0.25rem;
 	}
-	/* Markdown release notes styling */
-	.markdown-content {
-		font-size: 0.9rem;
-	}
-	.markdown-content h1 {
-		font-size: 1.5rem;
-		margin-top: 0.5rem;
-	}
-	.markdown-content h2 {
-		font-size: 1.3rem;
-	}
-	.markdown-content h3 {
-		font-size: 1.1rem;
-	}
-	.markdown-content ul, .markdown-content ol {
-		padding-left: 1.5rem;
-	}
-	.markdown-content code {
-		background-color: rgba(0,0,0,0.05);
-		padding: 0.1rem 0.3rem;
-		border-radius: 3px;
-	}
-	.markdown-content pre {
-		background-color: rgba(0,0,0,0.05);
-		padding: 0.5rem;
-		border-radius: 4px;
-	}
-	/* Limited preview height with gradient fade */
+	/* Release notes preview */
 	.release-notes-preview {
-		max-height: 100px; /* Approximately 5 lines */
+		max-height: 110px; /* Approximately 5 lines */
 		overflow: hidden;
-		position: relative;
+		text-align: left;
+		line-height: 1.4;
+		margin-bottom: 0;
 	}
-	.release-notes-preview::after {
-		content: "";
-		position: absolute;
-		bottom: 0;
-		left: 0;
-		width: 100%;
-		height: 30px;
-		background: linear-gradient(transparent, white);
-		pointer-events: none;
+	.release-notes-container {
+		text-align: left;
+		background-color: #f8f9fa;
+		border: 1px solid #dee2e6;
+		border-radius: 0.25rem;
+		padding: 0.75rem;
+		margin-bottom: 0.5rem;
 	}
 </style>
 {% endblock %}
@@ -223,10 +196,8 @@
 					{% if app.release_notes %}
 					<div class="mt-4">
 						<h6 class="mb-2"><i class="fas fa-clipboard-list me-2"></i>What's New</h6>
-						<div class="alert alert-light border py-2 mb-2">
-							<div class="markdown-content release-notes-preview" id="releaseNotesPreview">
-								{{ app.release_notes }}
-							</div>
+						<div class="release-notes-container">
+							<div class="text-pre-wrap small release-notes-preview" id="releaseNotesPreview">{{ app.release_notes }}</div>
 						</div>
 						<div class="text-end">
 							<button 
@@ -250,9 +221,7 @@
 										<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
 									</div>
 									<div class="modal-body">
-										<div class="markdown-content" id="fullReleaseNotes">
-											{{ app.release_notes }}
-										</div>
+										<div class="text-pre-wrap" style="text-align: left;">{{ app.release_notes }}</div>
 									</div>
 									<div class="modal-footer">
 										<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -441,9 +410,7 @@
 												<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
 											</div>
 											<div class="modal-body">
-												<div class="markdown-content version-release-notes" data-version-index="{{ loop.index }}">
-													{{ version.release_notes }}
-												</div>
+												<div class="text-pre-wrap">{{ version.release_notes }}</div>
 											</div>
 											<div class="modal-footer">
 												<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -732,7 +699,6 @@
 
 <!-- JavaScript for comment replies -->
 {% block scripts %}
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
 	function toggleReplyForm(commentId) {
 		const replyForm = document.getElementById('replyForm' + commentId);
@@ -745,40 +711,23 @@
 		}
 	}
 	
-	// Process markdown content
+	// Function to limit release notes preview to 5 lines
 	document.addEventListener('DOMContentLoaded', function() {
-		// Set options for marked.js
-		marked.setOptions({
-			breaks: true,
-			gfm: true
-		});
-		
-		// Process main app release notes
 		const releaseNotesPreview = document.getElementById('releaseNotesPreview');
-		const fullReleaseNotes = document.getElementById('fullReleaseNotes');
+		const showMoreButton = document.getElementById('showMoreButton');
 		
-		if (releaseNotesPreview && fullReleaseNotes) {
-			const rawContent = releaseNotesPreview.innerText;
-			
-			// Apply markdown to preview and full notes
-			releaseNotesPreview.innerHTML = marked.parse(rawContent);
-			fullReleaseNotes.innerHTML = marked.parse(rawContent);
-			
-			// Show the button since we're using CSS to limit height now
-			const showMoreButton = document.getElementById('showMoreButton');
-			if (showMoreButton) {
-				// Only show the button if the content is likely to overflow
-				const height = releaseNotesPreview.scrollHeight;
-				showMoreButton.style.display = height > 100 ? 'inline-block' : 'none';
+		if (releaseNotesPreview && showMoreButton) {
+			// Check if content height exceeds the max-height (5 lines)
+			if (releaseNotesPreview.scrollHeight > releaseNotesPreview.clientHeight) {
+				// Add ellipsis indicator at the end
+				releaseNotesPreview.innerHTML = releaseNotesPreview.innerHTML.trim() + '<span style="color: #6c757d;">...</span>';
+				// Show the 'Show more' button
+				showMoreButton.style.display = 'inline-block';
+			} else {
+				// If content fits within 5 lines, hide the button
+				showMoreButton.style.display = 'none';
 			}
 		}
-		
-		// Process version release notes
-		const versionNotes = document.querySelectorAll('.version-release-notes');
-		versionNotes.forEach(function(noteElem) {
-			const rawContent = noteElem.innerText;
-			noteElem.innerHTML = marked.parse(rawContent);
-		});
 	});
 </script>
 {% endblock %}
