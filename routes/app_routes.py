@@ -74,14 +74,29 @@ def upload():
                 from utils.file_utils import extract_app_info
                 app_info = extract_app_info(file_data, filename)
                 
+                # Get form values - these take priority over IPA values
+                app_name = request.form.get('app_name', '').strip()
+                bundle_id_form = request.form.get('bundle_id', '').strip()
+                app_version_form = request.form.get('app_version', '').strip()
+                
+                # Use form values if provided, otherwise use IPA values
+                if app_name:
+                    app_info['name'] = app_name
+                if bundle_id_form:
+                    app_info['bundle_id'] = bundle_id_form
+                if app_version_form:
+                    app_info['version'] = app_version_form
+                
                 # Set owner to current user
-                app_info['owner'] = session.get('username')
+                current_username = session.get('username')
+                app_info['owner'] = current_username
+                
                 # Set description (if provided)
                 if app_description:
                     app_info['description'] = app_description
                 
                 # Set org_id from current user
-                current_user = db.get_user(session.get('username'))
+                current_user = db.get_user(current_username)
                 is_primary_admin = current_user and current_user.get('role') == 'primary_admin'
                 
                 if is_primary_admin:
@@ -104,8 +119,42 @@ def upload():
                 # Save the file
                 db.save_file(app_info['file_id'], filename, file_data)
                 
-                # Save app to database
+                # Use add_app_version to ensure version list is created and release notes are stored
+                # This will create the first version entry
+                # Note: add_app_version will extract info again, so we need to preserve our fields
+                app_info = add_app_version(
+                    app_info['id'], 
+                    file_data, 
+                    filename, 
+                    app_version_form or app_info.get('version'), 
+                    release_notes
+                )
+                
+                # Preserve fields that might have been overwritten by add_app_version
+                app_info['owner'] = current_username
+                app_info['name'] = app_name or app_info.get('name', 'Unknown App')
+                if bundle_id_form:
+                    app_info['bundle_id'] = bundle_id_form
+                if app_description:
+                    app_info['description'] = app_description
+                if is_primary_admin:
+                    app_info['org_id'] = org_id
+                elif current_user and current_user.get('org_id'):
+                    app_info['org_id'] = current_user.get('org_id')
+                
+                # Save the app again with preserved fields
                 db.save_app(app_info)
+                
+                # Auto-share with the developer who uploaded it
+                # Developers automatically have access as owners, but sharing makes it explicit in the shared list
+                # Only auto-share if user is a developer (not admin/primary_admin)
+                # Admins already have access to all apps
+                if current_user and current_user.get('org_role') == 'developer':
+                    # Share with the developer (this adds them to the shared list)
+                    # Even though they have access as owner, this makes it visible in the shared users list
+                    success, message = db.share_app(app_info['id'], current_username)
+                    # Don't show error if it fails - owner access is already granted
+                
                 flash(f'App {app_info["name"]} added')
                     
                 return redirect(url_for('app.index'))
@@ -291,7 +340,7 @@ def app_detail(app_id):
                            format_datetime=format_datetime)
 
 @app_bp.route('/edit/<app_id>', methods=['GET', 'POST'])
-@admin_required
+@admin_or_developer_required
 def edit_app(app_id):
     app = db.get_app(app_id)
     if not app:
@@ -306,13 +355,26 @@ def edit_app(app_id):
     
     user_org_id = current_user.get('org_id')
     app_org_id = app.get('org_id')
+    current_username = session.get('username')
     
     # Primary admin can edit any app
     is_primary_admin = current_user.get('role') == 'primary_admin'
     
-    if not is_primary_admin and user_org_id != app_org_id:
-        flash('You do not have access to this app')
-        return redirect(url_for('app.index'))
+    # Org admin can edit any app in their org
+    is_org_admin = current_user.get('org_role') == 'admin'
+    
+    # Developer can edit their own apps
+    is_owner = app.get('owner') == current_username
+    
+    if not is_primary_admin:
+        if user_org_id != app_org_id:
+            flash('You do not have access to this app')
+            return redirect(url_for('app.index'))
+        
+        # Check if user has permission (org admin or owner)
+        if not (is_org_admin or is_owner):
+            flash('You do not have permission to edit this app')
+            return redirect(url_for('app.index'))
         
     if request.method == 'POST':
         # Update app data
@@ -426,7 +488,7 @@ def app_manifest(app_id):
     return response
 
 @app_bp.route('/delete/<app_id>', methods=['POST'])
-@admin_required
+@admin_or_developer_required
 def delete_app(app_id):
     app = db.get_app(app_id)
     if not app:
@@ -441,13 +503,26 @@ def delete_app(app_id):
     
     user_org_id = current_user.get('org_id')
     app_org_id = app.get('org_id')
+    current_username = session.get('username')
     
     # Primary admin can delete any app
     is_primary_admin = current_user.get('role') == 'primary_admin'
     
-    if not is_primary_admin and user_org_id != app_org_id:
-        flash('You do not have access to this app')
-        return redirect(url_for('app.index'))
+    # Org admin can delete any app in their org
+    is_org_admin = current_user.get('org_role') == 'admin'
+    
+    # Developer can delete their own apps
+    is_owner = app.get('owner') == current_username
+    
+    if not is_primary_admin:
+        if user_org_id != app_org_id:
+            flash('You do not have access to this app')
+            return redirect(url_for('app.index'))
+        
+        # Check if user has permission (org admin or owner)
+        if not (is_org_admin or is_owner):
+            flash('You do not have permission to delete this app')
+            return redirect(url_for('app.index'))
         
     # Delete app and associated files
     db.delete_app(app_id)

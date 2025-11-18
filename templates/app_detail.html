@@ -236,7 +236,7 @@
 							<i class="fas fa-share-alt me-2"></i> Manage Sharing
 						</a>
 					</div>
-					{% endif %} {% if g.user and (g.user.role == 'primary_admin' or g.user.org_role == 'admin') %}
+					{% endif %} {% if g.user and (g.user.role == 'primary_admin' or g.user.org_role == 'admin' or (g.user.org_role == 'developer' and app.owner == g.user.username)) %}
 					<hr class="my-4" />
 					<div class="d-grid gap-2">
 						<a
