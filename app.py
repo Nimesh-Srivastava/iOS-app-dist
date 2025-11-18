@@ -111,5 +111,16 @@ initialize_app()
 
 # Main entry point
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug='true', ssl_context=('cert.pem', 'key.pem')) 
+    port = int(os.environ.get('PORT', 5500))
+    debug_mode = os.environ.get('FLASK_DEBUG', 'true').lower() == 'true'
+    
+    # Try to use SSL if certificates exist, otherwise run without SSL
+    ssl_context = None
+    if os.path.exists('cert.pem') and os.path.exists('key.pem'):
+        ssl_context = ('cert.pem', 'key.pem')
+        logging.info("Running with SSL")
+    else:
+        logging.warning("SSL certificates not found. Running without SSL (HTTP only).")
+        logging.warning("For production, ensure cert.pem and key.pem are present.")
+    
+    app.run(host='0.0.0.0', port=port, debug=debug_mode) 

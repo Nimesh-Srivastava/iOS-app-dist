@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from werkzeug.security import generate_password_hash
 import uuid
 from datetime import datetime
+import certifi  # 👈 NEW
 
 # Load environment variables
 load_dotenv()
@@ -13,7 +14,12 @@ MONGO_URI = os.environ.get('MONGO_URI', 'mongodb://localhost:27017/')
 DB_NAME = os.environ.get('DB_NAME', 'app_distribution')
 
 # Connect to MongoDB
-client = MongoClient(MONGO_URI)
+# Use certifi CA bundle for Atlas / TLS connections
+if MONGO_URI.startswith("mongodb+srv://") or "mongodb.net" in MONGO_URI:
+    client = MongoClient(MONGO_URI, tlsCAFile=certifi.where())
+else:
+    client = MongoClient(MONGO_URI)
+
 db = client[DB_NAME]
 
 # Collections
@@ -25,6 +31,7 @@ files_collection = db['files']  # New collection for storing IPA files
 comments_collection = db['comments']  # New collection for app version comments
 notifications_collection = db['notifications']  # New collection for user notifications
 organizations_collection = db['organizations']  # Collection for organizations
+
 
 def initialize_db():
     """Initialize database with default data if empty"""
@@ -43,7 +50,12 @@ def initialize_db():
     notifications_collection.create_index([('username', 1), ('read', 1)])  # Index for unread notifications
     notifications_collection.create_index('org_id')  # Index for organization filtering
     organizations_collection.create_index('id', unique=True)  # Index for organization ID
-    organizations_collection.create_index('name')  # Index for organization name
+    try:
+        organizations_collection.create_index('name', unique=True)  # Index for organization name
+    except Exception:
+        # Index might already exist, that's okay
+        pass
+
     
     # Create default admin user if no users exist
     if users_collection.count_documents({}) == 0:
@@ -56,6 +68,32 @@ def initialize_db():
         }
         users_collection.insert_one(default_admin)
         print("Created default admin user (username: admin, password: admin123)")
+    else:
+        # Migrate existing admin user to primary_admin if needed
+        admin_user = users_collection.find_one({'username': 'admin'})
+        if admin_user:
+            # Update existing admin user to primary_admin role
+            update_needed = False
+            update_data = {}
+            
+            if admin_user.get('role') != 'primary_admin':
+                update_data['role'] = 'primary_admin'
+                update_needed = True
+            
+            if 'org_id' not in admin_user or admin_user.get('org_id') is not None:
+                update_data['org_id'] = None
+                update_needed = True
+            
+            if 'org_role' not in admin_user or admin_user.get('org_role') is not None:
+                update_data['org_role'] = None
+                update_needed = True
+            
+            if update_needed:
+                users_collection.update_one(
+                    {'username': 'admin'},
+                    {'$set': update_data}
+                )
+                print("Updated existing admin user to primary_admin role")
 
 # User operations
 def get_users(org_id=None):

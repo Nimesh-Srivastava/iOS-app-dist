@@ -123,6 +123,30 @@
             </div>
           </div>
 
+          {% if is_primary_admin %}
+          <div class="mb-3">
+            <label for="org_id" class="form-label">Organization (Optional)</label>
+            <div class="input-group">
+              <span class="input-group-text"
+                ><i class="fas fa-building"></i
+              ></span>
+              <select
+                class="form-select"
+                id="org_id"
+                name="org_id"
+              >
+                <option value="">No Organization (Global App)</option>
+                {% for org in organizations %}
+                <option value="{{ org.id }}">{{ org.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="form-text">
+              Select an organization to assign this app to, or leave blank for a global app
+            </div>
+          </div>
+          {% endif %}
+
           <div class="mb-4">
             <label for="file" class="form-label">IPA File</label>
             <div class="input-group">

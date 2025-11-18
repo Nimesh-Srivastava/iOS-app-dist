@@ -16,25 +16,44 @@
           <tr>
             <th>Username</th>
             <th>Role</th>
+            {% if is_primary_admin %}
+            <th>Organization</th>
+            {% endif %}
             <th>Actions</th>
           </tr>
         </thead>
         <tbody>
           {% for user in users %}
-          <tr {% if user.username == current_username %}class="border-start border-4 border-primary"{% endif %}>
+          <tr {% if user.username == session.username %}class="border-start border-4 border-primary"{% endif %}>
             <td>
               {{ user.username }}
-              {% if user.username == current_username %}
+              {% if user.username == session.username %}
                 <span class="badge bg-primary ms-2">You</span>
+              {% endif %}
+              {% if user.role == 'primary_admin' %}
+                <span class="badge bg-danger ms-2">Primary Admin</span>
               {% endif %}
             </td>
             <td>
-              <span
-                class="badge {% if user.role == 'admin' %}bg-danger{% elif user.role == 'tester' %}bg-purple{% else %}bg-primary{% endif %}"
-              >
-                {{ user.role }}
-              </span>
+              {% if user.role == 'primary_admin' %}
+                <span class="badge bg-danger">Primary Admin</span>
+              {% elif user.org_role %}
+                <span class="badge {% if user.org_role == 'admin' %}bg-danger{% elif user.org_role == 'developer' %}bg-primary{% else %}bg-info{% endif %}">
+                  {{ user.org_role|title }}
+                </span>
+              {% else %}
+                <span class="badge bg-secondary">No Role</span>
+              {% endif %}
             </td>
+            {% if is_primary_admin %}
+            <td>
+              {% if user.org_id %}
+                <span class="badge bg-secondary">{{ user.org_name or user.org_id }}</span>
+              {% else %}
+                <span class="text-muted">No Organization</span>
+              {% endif %}
+            </td>
+            {% endif %}
             <td>
               {% if user.username != 'admin' %}
               <form
@@ -48,7 +67,7 @@
                 </button>
               </form>
               {% else %}
-              <span class="text-muted">Primary admin</span>
+              <span class="text-muted">Cannot delete</span>
               {% endif %}
             </td>
           </tr>

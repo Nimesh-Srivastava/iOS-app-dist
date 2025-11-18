@@ -113,6 +113,13 @@ def manage_users():
         org_id = current_user.get('org_id')
         users = db.get_users(org_id=org_id) if org_id else []
     
+    # Add organization names for primary admin
+    if is_primary_admin:
+        orgs = {org['id']: org['name'] for org in db.get_organizations()}
+        for user in users:
+            if user.get('org_id'):
+                user['org_name'] = orgs.get(user.get('org_id'), 'Unknown')
+    
     return render_template('manage_users.html', users=users, is_primary_admin=is_primary_admin)
 
 @auth_bp.route('/delete_user/<username>', methods=['POST'])

@@ -82,7 +82,19 @@ def upload():
                 
                 # Set org_id from current user
                 current_user = db.get_user(session.get('username'))
-                if current_user and current_user.get('org_id'):
+                is_primary_admin = current_user and current_user.get('role') == 'primary_admin'
+                
+                if is_primary_admin:
+                    # Primary admin can optionally assign to an org, or leave it None
+                    org_id = request.form.get('org_id') or None
+                    if org_id:
+                        # Validate org exists
+                        org = db.get_organization(org_id)
+                        if not org:
+                            flash('Selected organization does not exist')
+                            return redirect(request.url)
+                    app_info['org_id'] = org_id
+                elif current_user and current_user.get('org_id'):
                     app_info['org_id'] = current_user.get('org_id')
                 else:
                     # User without org cannot create apps
@@ -104,8 +116,15 @@ def upload():
         else:
             flash('Invalid file type. Only IPA files are allowed.')
             return redirect(request.url)
+    
+    # Get organizations for primary admin
+    current_user = db.get_user(session.get('username'))
+    is_primary_admin = current_user and current_user.get('role') == 'primary_admin'
+    organizations = []
+    if is_primary_admin:
+        organizations = db.get_organizations()
             
-    return render_template('upload.html')
+    return render_template('upload.html', organizations=organizations, is_primary_admin=is_primary_admin)
 
 @app_bp.route('/upload_version/<app_id>', methods=['GET', 'POST'])
 @admin_or_developer_required
@@ -443,7 +462,7 @@ def manage_sharing(app_id):
         flash('App not found')
         return redirect(url_for('app.index'))
         
-    # Get users in the same org for sharing
+    # Get users for sharing
     current_user = db.get_user(session.get('username'))
     if not current_user:
         flash('User not found')
@@ -451,17 +470,28 @@ def manage_sharing(app_id):
     
     app_org_id = app.get('org_id')
     user_org_id = current_user.get('org_id')
+    is_primary_admin = current_user.get('role') == 'primary_admin'
     
-    # Primary admin can see all users, but should only share within org
-    # Org admins/developers can only see users in their org
-    if current_user.get('role') == 'primary_admin':
-        # For primary admin, get users in the app's org
-        users = db.get_users(org_id=app_org_id) if app_org_id else []
-    else:
-        # For org users, get users in their org
+    # Primary admin can manage sharing for any app
+    # Org admins/developers can only manage sharing for apps in their org
+    if not is_primary_admin:
         if user_org_id != app_org_id:
             flash('You do not have access to this app')
             return redirect(url_for('app.index'))
+    
+    # Primary admin can see all users (except other primary admins)
+    # Org admins/developers can only see users in their org
+    if is_primary_admin:
+        # Primary admin can see all users, but filter by app's org for sharing
+        if app_org_id:
+            # Show users in the app's org
+            users = db.get_users(org_id=app_org_id)
+        else:
+            # App has no org, show all users (except primary admins)
+            all_users = db.get_users()
+            users = [u for u in all_users if u.get('role') != 'primary_admin']
+    else:
+        # For org users, get users in their org
         users = db.get_users(org_id=user_org_id)
     
     # Get currently shared users
@@ -479,13 +509,15 @@ def manage_sharing(app_id):
         if user.get('role') == 'primary_admin':
             continue
         
-        # Skip org admins (they already have access to all apps in org)
-        if user.get('org_role') == 'admin':
+        # For primary admin, show all users
+        # For org users, skip org admins (they already have access to all apps in org)
+        if not is_primary_admin and user.get('org_role') == 'admin':
             continue
         
         # If current user is a developer (not admin),
         # they can only manage sharing for apps they own
-        if (current_user_org_role == 'developer' and 
+        if (not is_primary_admin and 
+            current_user_org_role == 'developer' and 
             user.get('org_role') == 'developer' and 
             current_username != username and
             app.get('owner') != current_username):
@@ -495,6 +527,7 @@ def manage_sharing(app_id):
         filterable_users.append({
             'username': username,
             'org_role': user.get('org_role'),
+            'org_id': user.get('org_id'),
             'is_shared': username in shared_users
         })
     
@@ -690,7 +723,7 @@ def add_comment(app_id):
 def delete_comment(app_id, comment_id):
     username = session.get('username')
     user = db.get_user(username)
-    is_admin = user and user.get('role') == 'admin'
+    is_admin = user and (user.get('role') == 'primary_admin' or user.get('org_role') == 'admin')
     
     # Delete the comment
     success = db.delete_comment(comment_id, username, is_admin)

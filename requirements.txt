@@ -1,6 +1,6 @@
 Flask==2.3.3
 Werkzeug==2.3.7
-pillow==10.0.0
+pillow>=10.0.0
 requests==2.31.0
 pymongo==4.6.0
 python-dotenv==1.0.0
