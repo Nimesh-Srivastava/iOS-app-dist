@@ -24,33 +24,46 @@ app_shares_collection = db['app_shares']  # New collection for tracking app shar
 files_collection = db['files']  # New collection for storing IPA files
 comments_collection = db['comments']  # New collection for app version comments
 notifications_collection = db['notifications']  # New collection for user notifications
+organizations_collection = db['organizations']  # Collection for organizations
 
 def initialize_db():
     """Initialize database with default data if empty"""
     # Create indexes for better performance
     users_collection.create_index('username', unique=True)
+    users_collection.create_index('org_id')  # Index for organization filtering
     apps_collection.create_index('id', unique=True)
+    apps_collection.create_index('org_id')  # Index for organization filtering
     builds_collection.create_index('id', unique=True)
+    builds_collection.create_index('org_id')  # Index for organization filtering
     app_shares_collection.create_index([('app_id', 1), ('username', 1)], unique=True)  # Composite index
     files_collection.create_index('file_id', unique=True)  # Index for file storage
     comments_collection.create_index([('app_id', 1), ('version', 1)])  # Index for comments by app version
+    comments_collection.create_index('org_id')  # Index for organization filtering
     notifications_collection.create_index('username')  # Index for notifications by username
     notifications_collection.create_index([('username', 1), ('read', 1)])  # Index for unread notifications
+    notifications_collection.create_index('org_id')  # Index for organization filtering
+    organizations_collection.create_index('id', unique=True)  # Index for organization ID
+    organizations_collection.create_index('name')  # Index for organization name
     
     # Create default admin user if no users exist
     if users_collection.count_documents({}) == 0:
         default_admin = {
             'username': 'admin',
             'password': generate_password_hash('admin123'),
-            'role': 'admin'
+            'role': 'primary_admin',  # Changed from 'admin' to 'primary_admin'
+            'org_id': None,  # Primary admin has no org
+            'org_role': None
         }
         users_collection.insert_one(default_admin)
         print("Created default admin user (username: admin, password: admin123)")
 
 # User operations
-def get_users():
-    """Get all users"""
-    return list(users_collection.find({}, {'_id': 0}))
+def get_users(org_id=None):
+    """Get all users, optionally filtered by organization"""
+    query = {}
+    if org_id is not None:
+        query['org_id'] = org_id
+    return list(users_collection.find(query, {'_id': 0}))
 
 def get_user(username):
     """Get a user by username"""
@@ -129,43 +142,119 @@ def delete_user(username):
     # Delete all notifications for this user
     delete_user_notifications(username)
 
+# Organization operations
+def get_organizations():
+    """Get all organizations"""
+    return list(organizations_collection.find({}, {'_id': 0}))
+
+def get_organization(org_id):
+    """Get an organization by ID"""
+    return organizations_collection.find_one({'id': org_id}, {'_id': 0})
+
+def save_organization(org_data):
+    """Create or update an organization"""
+    org_id = org_data['id']
+    organizations_collection.update_one(
+        {'id': org_id},
+        {'$set': org_data},
+        upsert=True
+    )
+
+def delete_organization(org_id):
+    """Delete an organization and all associated data"""
+    # Delete all users in this org (or set their org_id to None)
+    users_collection.update_many(
+        {'org_id': org_id},
+        {'$set': {'org_id': None, 'org_role': None}}
+    )
+    
+    # Delete all apps in this org
+    apps = apps_collection.find({'org_id': org_id}, {'_id': 0, 'id': 1})
+    for app in apps:
+        delete_app(app['id'])
+    
+    # Delete all builds in this org
+    builds_collection.delete_many({'org_id': org_id})
+    
+    # Delete all comments in this org
+    comments_collection.delete_many({'org_id': org_id})
+    
+    # Delete all notifications in this org
+    notifications_collection.delete_many({'org_id': org_id})
+    
+    # Delete the organization
+    organizations_collection.delete_one({'id': org_id})
+
+def get_org_users(org_id):
+    """Get all users in an organization"""
+    return list(users_collection.find({'org_id': org_id}, {'_id': 0}))
+
+def is_primary_admin(username):
+    """Check if a user is the primary admin"""
+    user = get_user(username)
+    return user and user.get('role') == 'primary_admin'
+
+def get_user_org(username):
+    """Get the organization for a user"""
+    user = get_user(username)
+    if not user or not user.get('org_id'):
+        return None
+    return get_organization(user.get('org_id'))
+
 # App operations
-def get_apps():
-    """Get all apps"""
-    return list(apps_collection.find({}, {'_id': 0}))
+def get_apps(org_id=None):
+    """Get all apps, optionally filtered by organization"""
+    query = {}
+    if org_id is not None:
+        query['org_id'] = org_id
+    return list(apps_collection.find(query, {'_id': 0}))
 
 def get_apps_for_user(username):
     """
     Get apps that a specific user has access to
-    - Admins get all apps
-    - Developers get their own apps plus shared apps
-    - Testers get only shared apps
+    - Primary admin sees all apps
+    - Org admins see all apps in their org
+    - Org developers see their own apps plus shared apps in their org
+    - Org testers see only shared apps in their org
     """
     user = get_user(username)
     if not user:
         return []
-        
-    # Admins see all apps
-    if user.get('role') == 'admin':
+    
+    # Primary admin sees all apps
+    if user.get('role') == 'primary_admin':
         return get_apps()
-        
-    # Get apps shared with the user
+    
+    # Get user's org_id
+    org_id = user.get('org_id')
+    if not org_id:
+        return []  # User without org has no apps
+    
+    # Org admins see all apps in their org
+    if user.get('org_role') == 'admin':
+        return get_apps(org_id=org_id)
+    
+    # Get apps shared with the user (within the same org)
     shared_app_ids = [
         share['app_id'] 
         for share in app_shares_collection.find({'username': username}, {'_id': 0, 'app_id': 1})
     ]
     
-    # For developers, also include apps they own
-    if user.get('role') == 'developer':
+    # For org developers, include apps they own plus shared apps (all within org)
+    if user.get('org_role') == 'developer':
         return list(apps_collection.find({
+            'org_id': org_id,
             '$or': [
                 {'id': {'$in': shared_app_ids}},
                 {'owner': username}
             ]
         }, {'_id': 0}))
     
-    # For testers, only show shared apps
-    return list(apps_collection.find({'id': {'$in': shared_app_ids}}, {'_id': 0}))
+    # For org testers, only show shared apps (within org)
+    return list(apps_collection.find({
+        'org_id': org_id,
+        'id': {'$in': shared_app_ids}
+    }, {'_id': 0}))
 
 def get_app(app_id):
     """Get an app by ID"""
@@ -201,7 +290,7 @@ def save_apps(apps):
 
 # App sharing operations
 def share_app(app_id, username):
-    """Share an app with a specific user"""
+    """Share an app with a specific user (must be in same org)"""
     # Check if app exists
     app = get_app(app_id)
     if not app:
@@ -211,10 +300,21 @@ def share_app(app_id, username):
     user = get_user(username)
     if not user:
         return False, "User not found"
-        
-    # Only prevent sharing with admins (they already have access to all apps)
-    if user.get('role') == 'admin':
-        return False, "No need to share with admin users (they have full access)"
+    
+    # Check if user is primary admin (they already have access to all apps)
+    if user.get('role') == 'primary_admin':
+        return False, "No need to share with primary admin (they have full access)"
+    
+    # Check if app and user are in the same org
+    app_org_id = app.get('org_id')
+    user_org_id = user.get('org_id')
+    
+    if app_org_id != user_org_id:
+        return False, "Cannot share app with users from different organizations"
+    
+    # Org admins already have access to all apps in their org
+    if user.get('org_role') == 'admin':
+        return False, "No need to share with org admin users (they have full access to org apps)"
     
     # Create or update share record
     app_shares_collection.update_one(
@@ -265,19 +365,45 @@ def get_user_app_access(username, app_id):
     user = get_user(username)
     if not user:
         return False
-        
-    # Admins and Developers have access to all apps
-    if user.get('role') in ['admin', 'developer']:
+    
+    # Primary admin has access to all apps
+    if user.get('role') == 'primary_admin':
         return True
-        
-    # Check if app is shared with the user
+    
+    # Get the app
+    app = get_app(app_id)
+    if not app:
+        return False
+    
+    # Check if app and user are in the same org
+    app_org_id = app.get('org_id')
+    user_org_id = user.get('org_id')
+    
+    if app_org_id != user_org_id:
+        return False  # Different orgs, no access
+    
+    # Org admins have access to all apps in their org
+    if user.get('org_role') == 'admin':
+        return True
+    
+    # Org developers have access to apps they own or that are shared with them
+    if user.get('org_role') == 'developer':
+        if app.get('owner') == username:
+            return True
+        share = app_shares_collection.find_one({'app_id': app_id, 'username': username})
+        return share is not None
+    
+    # Org testers only have access to shared apps
     share = app_shares_collection.find_one({'app_id': app_id, 'username': username})
     return share is not None
 
 # Build operations
-def get_builds():
-    """Get all builds"""
-    return list(builds_collection.find({}, {'_id': 0}))
+def get_builds(org_id=None):
+    """Get all builds, optionally filtered by organization"""
+    query = {}
+    if org_id is not None:
+        query['org_id'] = org_id
+    return list(builds_collection.find(query, {'_id': 0}))
 
 def get_build(build_id):
     """Get a build by ID"""
@@ -548,6 +674,11 @@ def add_comment(app_id, version, username, text, parent_id=None):
     user = get_user(username)
     if not user:
         return {'success': False, 'message': 'User not found'}
+    
+    # Get app to get org_id
+    app = get_app(app_id)
+    if not app:
+        return {'success': False, 'message': 'App not found'}
         
     comment_data = {
         'id': str(uuid.uuid4()),
@@ -557,7 +688,8 @@ def add_comment(app_id, version, username, text, parent_id=None):
         'user_role': user.get('role', 'user'),
         'text': text,
         'timestamp': datetime.now().isoformat(),
-        'parent_id': parent_id
+        'parent_id': parent_id,
+        'org_id': app.get('org_id')  # Store org_id for filtering
     }
     
     comments_collection.insert_one(comment_data)
@@ -667,6 +799,10 @@ def create_notification(username, type, content, reference_id=None, reference_ty
     Returns:
         dict: The notification data
     """
+    # Get user to get org_id
+    user = get_user(username)
+    org_id = user.get('org_id') if user else None
+    
     notification = {
         'id': str(uuid.uuid4()),
         'username': username,
@@ -676,7 +812,8 @@ def create_notification(username, type, content, reference_id=None, reference_ty
         'read': False,
         'reference_id': reference_id,
         'reference_type': reference_type,
-        'from_user': from_user
+        'from_user': from_user,
+        'org_id': org_id  # Store org_id for filtering
     }
     
     # Insert the notification into the database

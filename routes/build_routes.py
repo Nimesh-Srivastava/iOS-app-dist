@@ -44,6 +44,18 @@ def github_build():
             flash(f'GitHub token error: {token_message}')
             return redirect(url_for('build.github_build'))
             
+        # Get current user to set org_id
+        current_user = db.get_user(session.get('username'))
+        if not current_user:
+            flash('User not found')
+            return redirect(url_for('build.github_build'))
+        
+        # Users must be in an org to create builds (except primary admin)
+        org_id = current_user.get('org_id')
+        if not org_id and current_user.get('role') != 'primary_admin':
+            flash('You must be assigned to an organization to create builds')
+            return redirect(url_for('build.github_build'))
+        
         # Generate a unique build ID
         build_id = str(uuid.uuid4())
         
@@ -57,6 +69,7 @@ def github_build():
             'release_notes': release_notes,
             'status': 'queued',
             'user': session.get('username'),
+            'org_id': org_id,  # Set org_id for filtering
             'start_time': datetime.now().isoformat(),
             'log': f"Build queued for {app_name} from {repo_url} ({branch})..."
         }
@@ -99,18 +112,21 @@ def github_build():
                         'branch': build.get('branch')
                     })
     
-    # Get all builds for display
-    all_builds = db.get_builds()
-    # Filter builds based on user access
-    user_role = db.get_user(session.get('username')).get('role')
-    filtered_builds = []
-    for build in all_builds:
-        # Admin can see all builds
-        if user_role == 'admin':
-            filtered_builds.append(build)
-        # Users can see their own builds
-        elif build.get('user') == session.get('username'):
-            filtered_builds.append(build)
+    # Get builds based on user access
+    current_user = db.get_user(session.get('username'))
+    if not current_user:
+        filtered_builds = []
+    else:
+        # Primary admin sees all builds
+        if current_user.get('role') == 'primary_admin':
+            filtered_builds = db.get_builds()
+        else:
+            # Org users see builds in their org
+            org_id = current_user.get('org_id')
+            if org_id:
+                filtered_builds = db.get_builds(org_id=org_id)
+            else:
+                filtered_builds = []
     
     # Sort builds by start time descending (newest first)
     filtered_builds.sort(key=lambda x: x.get('start_time', ''), reverse=True)
@@ -129,11 +145,23 @@ def download_build(build_id):
     if not build:
         flash('Build not found')
         return redirect(url_for('app.index'))
-        
+    
     # Check if user has access
-    if build.get('user') != session.get('username') and not db.get_user(session.get('username')).get('role') == 'admin':
-        flash('You do not have access to this build')
+    current_user = db.get_user(session.get('username'))
+    if not current_user:
+        flash('User not found')
         return redirect(url_for('app.index'))
+    
+    is_primary_admin = current_user.get('role') == 'primary_admin'
+    user_org_id = current_user.get('org_id')
+    build_org_id = build.get('org_id')
+    
+    # Primary admin has access to all builds
+    # Otherwise, user must be in the same org as the build
+    if not is_primary_admin:
+        if user_org_id != build_org_id:
+            flash('You do not have access to this build')
+            return redirect(url_for('app.index'))
         
     # Check if build is completed and has a file
     if build.get('status') != 'completed':
@@ -168,9 +196,21 @@ def build_log(build_id):
         return redirect(url_for('app.index'))
         
     # Check if user has access
-    if build.get('user') != session.get('username') and not db.get_user(session.get('username')).get('role') == 'admin':
-        flash('You do not have access to this build')
+    current_user = db.get_user(session.get('username'))
+    if not current_user:
+        flash('User not found')
         return redirect(url_for('app.index'))
+    
+    is_primary_admin = current_user.get('role') == 'primary_admin'
+    user_org_id = current_user.get('org_id')
+    build_org_id = build.get('org_id')
+    
+    # Primary admin has access to all builds
+    # Otherwise, user must be in the same org as the build
+    if not is_primary_admin:
+        if user_org_id != build_org_id:
+            flash('You do not have access to this build')
+            return redirect(url_for('app.index'))
         
     # For API requests, return JSON
     if request.headers.get('Accept') == 'application/json':
@@ -228,9 +268,21 @@ def download_build_log(build_id):
         return redirect(url_for('app.index'))
         
     # Check if user has access
-    if build.get('user') != session.get('username') and not db.get_user(session.get('username')).get('role') == 'admin':
-        flash('You do not have access to this build')
+    current_user = db.get_user(session.get('username'))
+    if not current_user:
+        flash('User not found')
         return redirect(url_for('app.index'))
+    
+    is_primary_admin = current_user.get('role') == 'primary_admin'
+    user_org_id = current_user.get('org_id')
+    build_org_id = build.get('org_id')
+    
+    # Primary admin has access to all builds
+    # Otherwise, user must be in the same org as the build
+    if not is_primary_admin:
+        if user_org_id != build_org_id:
+            flash('You do not have access to this build')
+            return redirect(url_for('app.index'))
         
     # Prepare log content
     log_content = build.get('log', 'No log available')
@@ -267,6 +319,20 @@ def stop_build(build_id):
     if not build:
         flash('Build not found')
         return redirect(url_for('app.index'))
+    
+    # Check org access
+    current_user = db.get_user(session.get('username'))
+    if not current_user:
+        flash('User not found')
+        return redirect(url_for('app.index'))
+    
+    is_primary_admin = current_user.get('role') == 'primary_admin'
+    user_org_id = current_user.get('org_id')
+    build_org_id = build.get('org_id')
+    
+    if not is_primary_admin and user_org_id != build_org_id:
+        flash('You do not have access to this build')
+        return redirect(url_for('app.index'))
         
     # Can only stop builds that are in progress
     if build.get('status') not in ('queued', 'in_progress'):
@@ -297,6 +363,20 @@ def delete_build(build_id):
     if not build:
         flash('Build not found')
         return redirect(url_for('app.index'))
+    
+    # Check org access
+    current_user = db.get_user(session.get('username'))
+    if not current_user:
+        flash('User not found')
+        return redirect(url_for('app.index'))
+    
+    is_primary_admin = current_user.get('role') == 'primary_admin'
+    user_org_id = current_user.get('org_id')
+    build_org_id = build.get('org_id')
+    
+    if not is_primary_admin and user_org_id != build_org_id:
+        flash('You do not have access to this build')
+        return redirect(url_for('app.index'))
         
     # Delete the build and associated files
     db.delete_build(build_id)
@@ -319,6 +399,20 @@ def cleanup_repository(build_id):
     
     if not build:
         flash('Build not found')
+        return redirect(url_for('app.index'))
+    
+    # Check org access
+    current_user = db.get_user(session.get('username'))
+    if not current_user:
+        flash('User not found')
+        return redirect(url_for('app.index'))
+    
+    is_primary_admin = current_user.get('role') == 'primary_admin'
+    user_org_id = current_user.get('org_id')
+    build_org_id = build.get('org_id')
+    
+    if not is_primary_admin and user_org_id != build_org_id:
+        flash('You do not have access to this build')
         return redirect(url_for('app.index'))
         
     # Check if the build has fork info
