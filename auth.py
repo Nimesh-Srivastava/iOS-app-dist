@@ -166,8 +166,15 @@ def account_management():
     if not user:
         flash('User not found')
         return redirect(url_for('app.index'))
+    
+    # Get organization name if user belongs to an org
+    org_name = None
+    if user.get('org_id'):
+        org = db.get_organization(user.get('org_id'))
+        if org:
+            org_name = org.get('name')
         
-    return render_template('account.html', user=user)
+    return render_template('account.html', user=user, org_name=org_name)
 
 @auth_bp.route('/account/change-password', methods=['POST'])
 @login_required

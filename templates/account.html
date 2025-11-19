@@ -23,9 +23,11 @@ block content %}
         <a href="#security" class="list-group-item list-group-item-action" data-bs-toggle="list">
           <i class="fas fa-lock me-2"></i>Security
         </a>
+        {% if user.role == 'primary_admin' or user.org_role in ['admin', 'developer'] %}
         <a href="#github" class="list-group-item list-group-item-action" data-bs-toggle="list">
           <i class="fab fa-github me-2"></i>GitHub
         </a>
+        {% endif %}
         {% if user.role == 'primary_admin' or user.org_role == 'admin' %}
         <a href="{{ url_for('auth.manage_users') }}" class="list-group-item list-group-item-action">
           <i class="fas fa-users me-2"></i>Manage Users
@@ -58,8 +60,30 @@ block content %}
                 <div class="col-sm-3">
                   <h6 class="mb-0">Role</h6>
                 </div>
-                <div class="col-sm-9 text-secondary">{{ user.role }}</div>
+                <div class="col-sm-9 text-secondary">
+                  {% if user.role == 'primary_admin' %}
+                  <span class="badge bg-danger">Primary Admin</span>
+                  {% elif user.org_role %}
+                  <span class="badge bg-primary">{{ user.org_role|title }}</span>
+                  {% else %}
+                  <span class="badge bg-secondary">{{ user.role|title }}</span>
+                  {% endif %}
+                </div>
               </div>
+
+              {% if user.org_id %}
+              <div class="row mb-3">
+                <div class="col-sm-3">
+                  <h6 class="mb-0">Organization</h6>
+                </div>
+                <div class="col-sm-9 text-secondary">
+                  <div class="d-flex align-items-center">
+                    <i class="fas fa-building me-2 text-primary"></i>
+                    <span class="fw-semibold">{{ org_name if org_name else 'Unknown Organization' }}</span>
+                  </div>
+                </div>
+              </div>
+              {% endif %}
 
               <hr />
 
