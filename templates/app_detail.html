@@ -226,7 +226,7 @@
 					</div>
 					{% endif %}
 					
-					{% if g.user and g.user.role in ['admin', 'developer'] %}
+					{% if g.user and (g.user.role == 'primary_admin' or g.user.org_role in ['admin', 'developer']) %}
 					<hr class="my-4" />
 					<div class="d-grid gap-2">
 						<a
@@ -236,7 +236,7 @@
 							<i class="fas fa-share-alt me-2"></i> Manage Sharing
 						</a>
 					</div>
-					{% endif %} {% if g.user and g.user.role in ['admin'] %}
+					{% endif %} {% if g.user and (g.user.role == 'primary_admin' or g.user.org_role == 'admin' or (g.user.org_role == 'developer' and app.owner == g.user.username)) %}
 					<hr class="my-4" />
 					<div class="d-grid gap-2">
 						<a
@@ -261,7 +261,7 @@
 					</div>
 					{% endif %}
 					
-					{% if g.user and g.user.role in ['admin', 'developer'] and (g.user.role == 'admin' or app.owner == g.user.username) %}
+					{% if g.user and (g.user.role == 'primary_admin' or g.user.org_role in ['admin', 'developer']) and (g.user.role == 'primary_admin' or g.user.org_role == 'admin' or app.owner == g.user.username) %}
 					<hr class="my-4" />
 					<div class="d-grid">
 						<a
@@ -275,7 +275,7 @@
 				</div>
 			</div>
 
-			{% if g.user and g.user.role in ['admin', 'developer'] %}
+			{% if g.user and (g.user.role == 'primary_admin' or g.user.org_role in ['admin', 'developer']) %}
 			<!-- App Sharing Quick Actions -->
 			<div class="card mb-4 border-0 shadow-sm">
 				<div class="card-header">
@@ -294,8 +294,7 @@
 								><i class="fas fa-user me-2 text-muted"></i>{{
 								username }}</span
 							>
-							{% if not (g.user.role == 'developer' and username
-							== g.user.username) %}
+							{% if g.user.role == 'primary_admin' or g.user.org_role == 'admin' or (g.user.org_role == 'developer' and username != g.user.username) %}
 							<form
 								action="{{ url_for('app.unshare_app', app_id=app.id, username=username) }}"
 								method="post"
@@ -503,7 +502,7 @@
 																		</button>
 																	</div>
 																	
-																	{% if g.user.username == comment.username or g.user.role == 'admin' %}
+																	{% if g.user.username == comment.username or g.user.role == 'primary_admin' or g.user.org_role == 'admin' %}
 																	<div>
 																		<form 
 																			action="{{ url_for('app.delete_comment', app_id=app.id, comment_id=comment.id) }}" 
@@ -563,7 +562,7 @@
 																		<div class="d-flex justify-content-between align-items-center mt-1">
 																			<div><!-- Empty div to maintain spacing --></div>
 																			
-																			{% if g.user.username == reply.username or g.user.role == 'admin' %}
+																			{% if g.user.username == reply.username or g.user.role == 'primary_admin' or g.user.org_role == 'admin' %}
 																			<form 
 																				action="{{ url_for('app.delete_comment', app_id=app.id, comment_id=reply.id) }}" 
 																				method="post"

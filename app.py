@@ -14,6 +14,7 @@ from routes.app_routes import app_bp
 from routes.build_routes import build_bp
 from routes.api_routes import api_bp
 from routes.notification_routes import notification_bp
+from routes.org_routes import org_bp
 from models import check_abandoned_builds
 import database as db
 
@@ -28,6 +29,7 @@ app.register_blueprint(app_bp)
 app.register_blueprint(build_bp)
 app.register_blueprint(api_bp)
 app.register_blueprint(notification_bp, url_prefix='/api')
+app.register_blueprint(org_bp)
 
 # Root route redirects to app index
 @app.route('/')
@@ -109,5 +111,16 @@ initialize_app()
 
 # Main entry point
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug='true', ssl_context=('cert.pem', 'key.pem')) 
+    port = int(os.environ.get('PORT', 5500))
+    debug_mode = os.environ.get('FLASK_DEBUG', 'true').lower() == 'true'
+    
+    # Try to use SSL if certificates exist, otherwise run without SSL
+    ssl_context = None
+    if os.path.exists('cert.pem') and os.path.exists('key.pem'):
+        ssl_context = ('cert.pem', 'key.pem')
+        logging.info("Running with SSL")
+    else:
+        logging.warning("SSL certificates not found. Running without SSL (HTTP only).")
+        logging.warning("For production, ensure cert.pem and key.pem are present.")
+    
+    app.run(host='0.0.0.0', port=port, debug=debug_mode) 

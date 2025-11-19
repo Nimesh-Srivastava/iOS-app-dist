@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+{% block title %}Manage Organization Users{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1>Manage Users - {{ org.name }}</h1>
+  <a href="{{ url_for('org.list_organizations') }}" class="btn btn-secondary">
+    <i class="fas fa-arrow-left me-2"></i>Back to Organizations
+  </a>
+</div>
+
+<div class="row">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header bg-primary text-white">
+        <h5 class="mb-0">
+          <i class="fas fa-users me-2"></i>Users in Organization
+        </h5>
+      </div>
+      <div class="card-body">
+        {% if users_in_org %}
+        <div class="table-responsive">
+          <table class="table table-striped">
+            <thead>
+              <tr>
+                <th>Username</th>
+                <th>Role</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for user in users_in_org %}
+              <tr>
+                <td>{{ user.username }}</td>
+                <td>
+                  <form action="{{ url_for('org.update_user_role', org_id=org.id, username=user.username) }}" method="post" style="display: inline;">
+                    <select name="org_role" class="form-select form-select-sm" onchange="this.form.submit()">
+                      <option value="admin" {% if user.org_role == 'admin' %}selected{% endif %}>Admin</option>
+                      <option value="developer" {% if user.org_role == 'developer' %}selected{% endif %}>Developer</option>
+                      <option value="tester" {% if user.org_role == 'tester' %}selected{% endif %}>Tester</option>
+                    </select>
+                  </form>
+                </td>
+                <td>
+                  <form action="{{ url_for('org.remove_user_from_org', org_id=org.id, username=user.username) }}" method="post" style="display: inline;" onsubmit="return confirm('Remove {{ user.username }} from this organization?')">
+                    <button type="submit" class="btn btn-sm btn-danger">
+                      <i class="fas fa-times me-1"></i>Remove
+                    </button>
+                  </form>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="text-muted">No users in this organization yet.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header bg-success text-white">
+        <h5 class="mb-0">
+          <i class="fas fa-user-plus me-2"></i>Add User to Organization
+        </h5>
+      </div>
+      <div class="card-body">
+        {% if users_not_in_org %}
+        <form action="{{ url_for('org.add_user_to_org', org_id=org.id) }}" method="post">
+          <div class="mb-3">
+            <label for="username" class="form-label">Select User</label>
+            <select class="form-select" id="username" name="username" required>
+              <option value="">Choose a user...</option>
+              {% for user in users_not_in_org %}
+              <option value="{{ user.username }}">{{ user.username }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          
+          <div class="mb-3">
+            <label for="org_role" class="form-label">Role</label>
+            <select class="form-select" id="org_role" name="org_role" required>
+              <option value="admin">Admin</option>
+              <option value="developer">Developer</option>
+              <option value="tester">Tester</option>
+            </select>
+            <small class="form-text text-muted">
+              <strong>Admin:</strong> Full access to all apps in the organization<br>
+              <strong>Developer:</strong> Can upload and manage apps<br>
+              <strong>Tester:</strong> Can view shared apps only
+            </small>
+          </div>
+          
+          <button type="submit" class="btn btn-primary">
+            <i class="fas fa-plus me-1"></i>Add User
+          </button>
+        </form>
+        {% else %}
+        <p class="text-muted">All available users are already in this organization.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+

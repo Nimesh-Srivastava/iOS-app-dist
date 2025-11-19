@@ -47,10 +47,13 @@ def logout():
 @auth_bp.route('/register', methods=['GET', 'POST'])
 @admin_required
 def register():
+    current_user = db.get_user(session.get('username'))
+    is_primary_admin = current_user and current_user.get('role') == 'primary_admin'
+    
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
-        role = request.form['role']
+        role = request.form.get('role', 'user')  # Default role
         
         error = None
         
@@ -60,25 +63,64 @@ def register():
             error = 'Password is required'
         elif db.get_user(username) is not None:
             error = f'User {username} is already registered'
+        
+        # Only primary admin can assign org and org_role
+        org_id = None
+        org_role = None
+        if is_primary_admin:
+            org_id = request.form.get('org_id') or None
+            org_role = request.form.get('org_role') or None
+            
+            if org_id:
+                # Validate org exists
+                org = db.get_organization(org_id)
+                if not org:
+                    error = 'Selected organization does not exist'
             
         if error is None:
-            db.save_user({
+            user_data = {
                 'username': username,
                 'password': generate_password_hash(password),
-                'role': role
-            })
-            flash(f'User {username} created with {role} role')
+                'role': 'user',  # Regular users have role 'user', not 'admin' or 'developer'
+                'org_id': org_id,
+                'org_role': org_role
+            }
+            
+            db.save_user(user_data)
+            flash(f'User {username} created successfully')
             return redirect(url_for('auth.manage_users'))
             
         flash(error)
     
-    return render_template('register.html')
+    # Get organizations for primary admin
+    organizations = []
+    if is_primary_admin:
+        organizations = db.get_organizations()
+    
+    return render_template('register.html', organizations=organizations, is_primary_admin=is_primary_admin)
 
 @auth_bp.route('/manage_users')
 @admin_required
 def manage_users():
-    users = db.get_users()
-    return render_template('manage_users.html', users=users)
+    current_user = db.get_user(session.get('username'))
+    is_primary_admin = current_user and current_user.get('role') == 'primary_admin'
+    
+    if is_primary_admin:
+        # Primary admin sees all users
+        users = db.get_users()
+    else:
+        # Org admin sees only users in their org
+        org_id = current_user.get('org_id')
+        users = db.get_users(org_id=org_id) if org_id else []
+    
+    # Add organization names for primary admin
+    if is_primary_admin:
+        orgs = {org['id']: org['name'] for org in db.get_organizations()}
+        for user in users:
+            if user.get('org_id'):
+                user['org_name'] = orgs.get(user.get('org_id'), 'Unknown')
+    
+    return render_template('manage_users.html', users=users, is_primary_admin=is_primary_admin)
 
 @auth_bp.route('/delete_user/<username>', methods=['POST'])
 @admin_required
@@ -86,6 +128,26 @@ def delete_user(username):
     if session.get('username') == username:
         flash('You cannot delete your own account')
         return redirect(url_for('auth.manage_users'))
+    
+    # Check org access
+    current_user = db.get_user(session.get('username'))
+    target_user = db.get_user(username)
+    
+    if not current_user or not target_user:
+        flash('User not found')
+        return redirect(url_for('auth.manage_users'))
+    
+    # Primary admin can delete any user
+    is_primary_admin = current_user.get('role') == 'primary_admin'
+    
+    # Org admin can only delete users in their org
+    if not is_primary_admin:
+        current_org_id = current_user.get('org_id')
+        target_org_id = target_user.get('org_id')
+        
+        if current_org_id != target_org_id:
+            flash('You can only delete users in your organization')
+            return redirect(url_for('auth.manage_users'))
         
     db.delete_user(username)
     flash(f'User {username} deleted')

@@ -15,7 +15,7 @@ block content %}
             />
           </div>
           <div class="text-muted mb-2">
-            Role: <span class="badge bg-primary">{{ user.role }}</span>
+            Role: <span class="badge bg-primary">{% if user.role == 'primary_admin' %}Primary Admin{% elif user.org_role %}{{ user.org_role|title }}{% else %}{{ user.role }}{% endif %}</span>
           </div>
         </div>
       </div>
@@ -34,7 +34,7 @@ block content %}
         >
           <i class="fas fa-lock me-2"></i>Security
         </a>
-        {% if user.role == 'admin' %}
+        {% if user.role == 'primary_admin' or user.org_role == 'admin' %}
         <a
           href="{{ url_for('auth.manage_users') }}"
           class="list-group-item list-group-item-action"
