@@ -64,10 +64,12 @@ def register():
         elif db.get_user(username) is not None:
             error = f'User {username} is already registered'
         
-        # Only primary admin can assign org and org_role
+        # Determine org assignment
         org_id = None
         org_role = None
+        
         if is_primary_admin:
+            # Primary admin can choose org and org_role from form
             org_id = request.form.get('org_id') or None
             org_role = request.form.get('org_role') or None
             
@@ -76,6 +78,10 @@ def register():
                 org = db.get_organization(org_id)
                 if not org:
                     error = 'Selected organization does not exist'
+        else:
+            # Org admin automatically assigns their own org to new users
+            org_id = current_user.get('org_id')
+            org_role = request.form.get('org_role') or None
             
         if error is None:
             user_data = {
@@ -193,6 +199,46 @@ def change_password():
     # Update password
     db.update_user_password(user['username'], generate_password_hash(new_password))
     flash('Password updated successfully')
+    return redirect(url_for('auth.account_management'))
+
+@auth_bp.route('/account/connect_github', methods=['POST'])
+@login_required
+def connect_github():
+    user = db.get_user(session.get('username'))
+    if not user:
+        flash('User not found')
+        return redirect(url_for('app.index'))
+        
+    token = request.form.get('github_token')
+    
+    if not token:
+        flash('GitHub token is required')
+        return redirect(url_for('auth.account_management'))
+        
+    # Verify token validity
+    from utils.github_utils import verify_github_token
+    is_valid, message = verify_github_token(token)
+    
+    if not is_valid:
+        flash(f'Invalid GitHub token: {message}')
+        return redirect(url_for('auth.account_management'))
+        
+    # Save token
+    db.update_user_github_token(user['username'], token)
+    flash('GitHub account connected successfully')
+    return redirect(url_for('auth.account_management'))
+
+@auth_bp.route('/account/disconnect_github', methods=['POST'])
+@login_required
+def disconnect_github():
+    user = db.get_user(session.get('username'))
+    if not user:
+        flash('User not found')
+        return redirect(url_for('app.index'))
+        
+    # Remove token
+    db.update_user_github_token(user['username'], None)
+    flash('GitHub account disconnected')
     return redirect(url_for('auth.account_management'))
 
 @auth_bp.route('/account/profile-picture', methods=['POST'])

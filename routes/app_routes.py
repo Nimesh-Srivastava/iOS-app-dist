@@ -32,6 +32,15 @@ def index():
                     filtered_apps.append(app)
             apps = filtered_apps
             
+        # Populate size for apps if missing
+        for app in apps:
+            if not app.get('size') and app.get('file_id'):
+                file_data = db.get_file(app.get('file_id'))
+                if file_data:
+                    app['size'] = file_data.get('size', 0)
+                else:
+                    app['size'] = 0
+            
         return render_template('index.html', apps=apps, query=request.args.get('q', ''))
     else:
         return render_template('login.html')
