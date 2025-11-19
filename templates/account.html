@@ -7,45 +7,31 @@ block content %}
         <div class="card-body text-center">
           <h5 class="fw-bold mb-3">{{ user.username }}</h5>
           <div class="mb-3">
-            <img
-              src="{{ url_for('auth.user_profile_picture', username=user.username) }}"
-              alt="Profile Picture"
-              class="rounded-circle img-fluid"
-              style="width: 150px; height: 150px; object-fit: cover"
-            />
+            <img src="{{ url_for('auth.user_profile_picture', username=user.username) }}" alt="Profile Picture"
+              class="rounded-circle img-fluid" style="width: 150px; height: 150px; object-fit: cover" />
           </div>
           <div class="text-muted mb-2">
-            Role: <span class="badge bg-primary">{% if user.role == 'primary_admin' %}Primary Admin{% elif user.org_role %}{{ user.org_role|title }}{% else %}{{ user.role }}{% endif %}</span>
+            Role: <span class="badge bg-primary">{% if user.role == 'primary_admin' %}Primary Admin{% elif user.org_role
+              %}{{ user.org_role|title }}{% else %}{{ user.role }}{% endif %}</span>
           </div>
         </div>
       </div>
       <div class="list-group mb-4 shadow-sm">
-        <a
-          href="#profile"
-          class="list-group-item list-group-item-action active"
-          data-bs-toggle="list"
-        >
+        <a href="#profile" class="list-group-item list-group-item-action active" data-bs-toggle="list">
           <i class="fas fa-user me-2"></i>Profile
         </a>
-        <a
-          href="#security"
-          class="list-group-item list-group-item-action"
-          data-bs-toggle="list"
-        >
+        <a href="#security" class="list-group-item list-group-item-action" data-bs-toggle="list">
           <i class="fas fa-lock me-2"></i>Security
         </a>
+        <a href="#github" class="list-group-item list-group-item-action" data-bs-toggle="list">
+          <i class="fab fa-github me-2"></i>GitHub
+        </a>
         {% if user.role == 'primary_admin' or user.org_role == 'admin' %}
-        <a
-          href="{{ url_for('auth.manage_users') }}"
-          class="list-group-item list-group-item-action"
-        >
+        <a href="{{ url_for('auth.manage_users') }}" class="list-group-item list-group-item-action">
           <i class="fas fa-users me-2"></i>Manage Users
         </a>
         {% endif %}
-        <a
-          href="{{ url_for('app.index') }}"
-          class="list-group-item list-group-item-action"
-        >
+        <a href="{{ url_for('app.index') }}" class="list-group-item list-group-item-action">
           <i class="fas fa-arrow-left me-2"></i>Back to Apps
         </a>
       </div>
@@ -78,23 +64,12 @@ block content %}
               <hr />
 
               <h6 class="mb-3">Update Profile Picture</h6>
-              <form
-                action="{{ url_for('auth.update_profile_picture') }}"
-                method="post"
-                enctype="multipart/form-data"
-                id="profile-picture-form"
-              >
+              <form action="{{ url_for('auth.update_profile_picture') }}" method="post" enctype="multipart/form-data"
+                id="profile-picture-form">
                 <div class="mb-3">
-                  <label for="profile_picture" class="form-label"
-                    >Choose a new profile picture</label
-                  >
-                  <input
-                    class="form-control"
-                    type="file"
-                    id="profile_picture"
-                    name="profile_picture"
-                    accept="image/*"
-                  />
+                  <label for="profile_picture" class="form-label">Choose a new profile picture</label>
+                  <input class="form-control" type="file" id="profile_picture" name="profile_picture"
+                    accept="image/*" />
                   <div class="form-text">
                     Recommended size: 300x300 pixels. Supported formats: JPEG,
                     PNG, GIF.
@@ -104,15 +79,66 @@ block content %}
                 <!-- Hidden field for cropped image data -->
                 <input type="hidden" name="cropped_image" id="cropped_image" />
 
-                <button
-                  type="button"
-                  class="btn btn-primary"
-                  id="upload-btn"
-                  disabled
-                >
+                <button type="button" class="btn btn-primary" id="upload-btn" disabled>
                   <i class="fas fa-crop-alt me-1"></i> Upload Picture
                 </button>
               </form>
+            </div>
+          </div>
+        </div>
+
+        <!-- GitHub Connection section -->
+        <div class="tab-pane fade" id="github">
+          <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white py-3">
+              <h5 class="card-title mb-0">
+                <i class="fab fa-github me-2"></i>GitHub Connection
+              </h5>
+            </div>
+            <div class="card-body">
+              {% if user.github_token %}
+              <div class="alert alert-success d-flex align-items-center">
+                <i class="fas fa-check-circle me-2"></i>
+                <div>
+                  <strong>Connected!</strong> Your GitHub account is connected.
+                </div>
+              </div>
+              <p class="text-muted mb-3">
+                You are ready to use GitHub Build features.
+              </p>
+              <form action="{{ url_for('auth.disconnect_github') }}" method="post">
+                <button type="submit" class="btn btn-outline-danger"
+                  onclick="return confirm('Are you sure you want to disconnect your GitHub account? You will no longer be able to trigger builds.')">
+                  <i class="fas fa-unlink me-1"></i> Disconnect GitHub Account
+                </button>
+              </form>
+              {% else %}
+              <div class="alert alert-warning d-flex align-items-center">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <div>
+                  <strong>Not Connected!</strong> You must connect your GitHub
+                  account to use build features.
+                </div>
+              </div>
+              <p class="text-muted mb-3">
+                Please provide a GitHub Personal Access Token (PAT) with
+                <code>repo</code> and <code>workflow</code> scopes.
+              </p>
+              <form action="{{ url_for('auth.connect_github') }}" method="post">
+                <div class="mb-3">
+                  <label for="github_token" class="form-label">Personal Access Token</label>
+                  <input type="password" class="form-control" id="github_token" name="github_token" required
+                    placeholder="ghp_..." />
+                  <div class="form-text">
+                    <a href="https://github.com/settings/tokens/new?scopes=repo,workflow&description=AppDist+Build+Token"
+                      target="_blank">Generate a new token here</a>
+                  </div>
+                </div>
+                <button type="submit" class="btn btn-primary">
+                  <i class="fab fa-github me-1"></i> Connect GitHub Account
+                </button>
+              </form>
+              {% endif %}
             </div>
           </div>
         </div>
@@ -129,46 +155,21 @@ block content %}
               <h6 class="mb-3">Change Password</h6>
               <form action="{{ url_for('auth.change_password') }}" method="post">
                 <div class="mb-3">
-                  <label for="current_password" class="form-label"
-                    >Current Password</label
-                  >
-                  <input
-                    type="password"
-                    class="form-control"
-                    id="current_password"
-                    name="current_password"
-                    required
-                  />
+                  <label for="current_password" class="form-label">Current Password</label>
+                  <input type="password" class="form-control" id="current_password" name="current_password" required />
                 </div>
                 <div class="mb-3">
-                  <label for="new_password" class="form-label"
-                    >New Password</label
-                  >
-                  <input
-                    type="password"
-                    class="form-control"
-                    id="new_password"
-                    name="new_password"
-                    required
-                    minlength="8"
-                    pattern="^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&]{8,}$"
-                  />
+                  <label for="new_password" class="form-label">New Password</label>
+                  <input type="password" class="form-control" id="new_password" name="new_password" required
+                    minlength="8" pattern="^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&]{8,}$" />
                   <div class="form-text">
                     Minimum 8 characters, must include at least one letter and
                     one number.
                   </div>
                 </div>
                 <div class="mb-3">
-                  <label for="confirm_password" class="form-label"
-                    >Confirm New Password</label
-                  >
-                  <input
-                    type="password"
-                    class="form-control"
-                    id="confirm_password"
-                    name="confirm_password"
-                    required
-                  />
+                  <label for="confirm_password" class="form-label">Confirm New Password</label>
+                  <input type="password" class="form-control" id="confirm_password" name="confirm_password" required />
                 </div>
                 <button type="submit" class="btn btn-primary">
                   <i class="fas fa-key me-1"></i> Change Password
@@ -339,9 +340,6 @@ block content %}
 </script>
 
 <!-- Cropper.js CSS and JS -->
-<link
-  href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css"
-  rel="stylesheet"
-/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" rel="stylesheet" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
 {% endblock %}

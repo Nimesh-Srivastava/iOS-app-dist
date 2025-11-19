@@ -118,6 +118,7 @@ def extract_app_info(file_data, filename):
                         'build_number': build_number,
                         'filename': filename,
                         'icon': icon_data_url,
+                        'size': len(file_data),
                         'upload_date': datetime.now().isoformat()
                     }
     except Exception as e:

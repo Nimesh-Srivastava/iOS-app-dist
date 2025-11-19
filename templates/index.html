@@ -60,8 +60,8 @@ endblock %} {% block content %}
 					<div>
 						<i class="far fa-calendar-alt me-1"></i>
 						{% if app.upload_date %} {{
-						app.upload_date.split('T')[0] }} {% elif
-						app.creation_date %} {{ app.creation_date.split('T')[0]
+						app.upload_date|format_date }} {% elif
+						app.creation_date %} {{ app.creation_date|format_date
 						}} {% else %} Unknown {% endif %}
 					</div>
 					<div>

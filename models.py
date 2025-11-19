@@ -134,7 +134,7 @@ def update_build_status(build_id, status, log=None, end_time=None):
     return True
 
 def build_ios_app_from_github(build_id, repo_url, branch, app_name, build_config='Release', 
-                        certificate_path=None, provisioning_profile=None, release_notes=None):
+                        certificate_path=None, provisioning_profile=None, release_notes=None, callback_url=None, token=None):
     """
     Build an iOS app from a GitHub repository
     
@@ -147,6 +147,8 @@ def build_ios_app_from_github(build_id, repo_url, branch, app_name, build_config
         certificate_path (str, optional): Path to the signing certificate
         provisioning_profile (str, optional): Path to the provisioning profile
         release_notes (str, optional): Release notes for this version
+        callback_url (str, optional): The URL to call back with build results
+        token (str, optional): The GitHub token to use
         
     Returns:
         bool: True if build started successfully, False otherwise
@@ -158,18 +160,26 @@ def build_ios_app_from_github(build_id, repo_url, branch, app_name, build_config
     from utils.github_utils import fork_and_setup_github_workflow, monitor_github_workflow
     
     # Setup GitHub workflow
+    # Setup GitHub workflow
+    # Setup GitHub workflow
     success, message, fork_info = fork_and_setup_github_workflow(
-        build_id, repo_url, branch, app_name, build_config
+        build_id, repo_url, branch, app_name, build_config, callback_url, token
     )
+    
+    # Update build with fork info if available
+    if fork_info:
+        build = db.get_build(build_id)
+        if build:
+            build['fork_info'] = fork_info
+            db.save_build(build)
     
     if not success:
         update_build_status(build_id, 'failed', message)
         return False
     
-    # Update build with fork info and release notes
+    # Update build with status and release notes
     build = db.get_build(build_id)
     if build:
-        build['fork_info'] = fork_info
         build['status'] = 'in_progress'
         build['log'] = message
         if release_notes:
@@ -179,7 +189,7 @@ def build_ios_app_from_github(build_id, repo_url, branch, app_name, build_config
     # Start a thread to monitor the workflow
     monitor_thread = threading.Thread(
         target=monitor_github_workflow,
-        args=(build_id, fork_info)
+        args=(build_id, fork_info, token)
     )
     monitor_thread.daemon = True
     monitor_thread.start()
@@ -215,4 +225,7 @@ def check_abandoned_builds():
             # Clean up GitHub fork if needed
             if 'fork_info' in build:
                 from utils.github_utils import cleanup_fork_on_failure
-                cleanup_fork_on_failure(build) 
+                # Try to get user token
+                user = db.get_user(build.get('user'))
+                token = user.get('github_token') if user else None
+                cleanup_fork_on_failure(build, token=token) 

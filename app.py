@@ -2,7 +2,7 @@ import os
 import logging
 import threading
 import time
-from flask import Flask, render_template, session, g, redirect, url_for
+from flask import Flask, render_template, session, g, redirect, url_for, request
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -72,6 +72,19 @@ def load_logged_in_user():
     else:
         g.user = db.get_user(username)
         g.unread_notifications = db.get_unread_notification_count(username)
+
+@app.after_request
+def add_header(response):
+    """
+    Add headers to both force latest IE rendering engine or Chrome Frame,
+    and also to cache the rendered page for 10 minutes.
+    """
+    # Don't cache non-static files
+    if not request.path.startswith('/static'):
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+    return response
 
 # Error handlers
 @app.errorhandler(404)

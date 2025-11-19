@@ -1,7 +1,13 @@
 {
   "version": 2,
   "builds": [
-    {"src": "app.py", "use": "@vercel/python"}
+    {
+      "src": "app.py",
+      "use": "@vercel/python",
+      "config": {
+        "includeFiles": ["defaultApp.png", "defaultProf.jpg"]
+      }
+    }
   ],
   "routes": [
     {"src":"/(.*)", "dest":"app.py"}

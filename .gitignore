@@ -14,6 +14,9 @@ temp/
 migrate_to_mongodb.py
 fix_log_format.py
 __pycache__/
+verify_route_protection.py
+verify_github_db.py
+verify_headers.py
 
 # Log files
 migration.log

@@ -30,18 +30,17 @@ def github_build():
             flash('Repository URL is required')
             return redirect(url_for('build.github_build'))
             
+        # If app name is not provided, derive it from the repo URL
         if not app_name:
-            flash('App name is required')
-            return redirect(url_for('build.github_build'))
+            from utils.github_utils import extract_github_repo_info
+            owner, repo = extract_github_repo_info(repo_url)
+            if repo:
+                app_name = repo
+            else:
+                app_name = "Unknown App"
             
         if not release_notes:
             flash('Release notes are required')
-            return redirect(url_for('build.github_build'))
-            
-        # Verify GitHub token
-        token_valid, token_message = verify_github_token()
-        if not token_valid:
-            flash(f'GitHub token error: {token_message}')
             return redirect(url_for('build.github_build'))
             
         # Get current user to set org_id
@@ -49,6 +48,18 @@ def github_build():
         if not current_user:
             flash('User not found')
             return redirect(url_for('build.github_build'))
+            
+        # Check for GitHub token
+        github_token = current_user.get('github_token')
+        if not github_token:
+            flash('You must connect your GitHub account to use this feature')
+            return redirect(url_for('auth.account_management') + '#github')
+            
+        # Verify GitHub token
+        token_valid, token_message = verify_github_token(github_token)
+        if not token_valid:
+            flash(f'GitHub token error: {token_message}')
+            return redirect(url_for('auth.account_management') + '#github')
         
         # Users must be in an org to create builds (except primary admin)
         org_id = current_user.get('org_id')
@@ -78,9 +89,10 @@ def github_build():
         db.save_build(build)
         
         # Start the build process in the background
+        callback_url = request.host_url.rstrip('/')
         threading.Thread(
             target=build_ios_app_from_github,
-            args=(build_id, repo_url, branch, app_name, build_config, None, None, release_notes)
+            args=(build_id, repo_url, branch, app_name, build_config, None, None, release_notes, callback_url, github_token)
         ).start()
         
         flash(f'Build started for {app_name}')
@@ -91,8 +103,16 @@ def github_build():
     repo_url = request.args.get('repo_url', '')
     branches = []
     
+    current_user = db.get_user(session.get('username'))
+    github_token = current_user.get('github_token') if current_user else None
+    
     if repo_url:
-        branches = fetch_branches(repo_url)
+        if github_token:
+            branches = fetch_branches(repo_url, github_token)
+        else:
+            # If no token, we might fail to fetch private repos, but try anyway (maybe public)
+            # or we could redirect/flash, but for GET it's better to just try or show empty
+            branches = fetch_branches(repo_url)
         
     # Fetch user's previous builds for repo suggestions
     user_builds = []
@@ -131,11 +151,15 @@ def github_build():
     # Sort builds by start time descending (newest first)
     filtered_builds.sort(key=lambda x: x.get('start_time', ''), reverse=True)
     
+    # Check if user has GitHub connected
+    github_connected = github_token is not None
+    
     return render_template('github_build.html', 
                           branches=branches, 
                           repo_url=repo_url,
                           user_builds=user_builds,
-                          builds=filtered_builds)
+                          builds=filtered_builds,
+                          github_connected=github_connected)
 
 @build_bp.route('/download_build/<build_id>')
 @login_required
@@ -350,7 +374,9 @@ def stop_build(build_id):
     # Try to clean up GitHub fork if it exists
     if 'fork_info' in build:
         from utils.github_utils import cleanup_fork_on_failure
-        cleanup_fork_on_failure(build)
+        # Get user's token for cleanup
+        github_token = current_user.get('github_token')
+        cleanup_fork_on_failure(build, token=github_token)
         
     flash('Build cancelled')
     return redirect(url_for('build.build_log', build_id=build_id))
@@ -387,7 +413,9 @@ def delete_build(build_id):
         repo = build.get('fork_info', {}).get('repo')
         
         if owner and repo:
-            cleanup_fork(owner, repo)
+            # Get user's token for cleanup
+            github_token = current_user.get('github_token')
+            cleanup_fork(owner, repo, token=github_token)
     
     flash('Build deleted')
     return redirect(url_for('app.index'))
@@ -430,7 +458,8 @@ def cleanup_repository(build_id):
         return redirect(url_for('build.build_log', build_id=build_id))
         
     # Try to delete the fork
-    success = cleanup_fork(owner, repo)
+    github_token = current_user.get('github_token')
+    success = cleanup_fork(owner, repo, token=github_token)
     
     if success:
         # Update build to indicate fork was cleaned up

@@ -48,21 +48,27 @@ def get_github_repo_url():
     # Return default from environment or hardcoded value
     return GITHUB_REPO_URL
 
-def verify_github_token():
+def verify_github_token(token=None):
     """
     Verify that the GitHub token is valid and has the required permissions
     
+    Args:
+        token (str, optional): The GitHub token to verify. If None, uses global token.
+        
     Returns:
         tuple: (bool, str) - (is_valid, message)
     """
+    # Use provided token or fallback to global
+    api_token = token if token else GITHUB_API_TOKEN
+    
     # Skip if no token
-    if not GITHUB_API_TOKEN:
+    if not api_token:
         return False, "GitHub API token not configured"
     
     try:
         # Set headers for GitHub API
         headers = {
-            'Authorization': f'token {GITHUB_API_TOKEN}',
+            'Authorization': f'token {api_token}',
             'Accept': 'application/vnd.github.v3+json'
         }
         
@@ -85,26 +91,32 @@ def verify_github_token():
     except Exception as e:
         return False, f"Error verifying GitHub token: {str(e)}"
 
-def fetch_branches(repo_url):
+def fetch_branches(repo_url, token=None):
     """
     Fetch branches from a GitHub repository
     
     Args:
         repo_url (str): The GitHub repository URL
+        token (str, optional): The GitHub token to use
         
     Returns:
         list: A list of branch names
     """
     try:
         # Parse owner and repo from URL
-        parts = repo_url.rstrip('/').split('/')
-        owner = parts[-2]
-        repo = parts[-1]
+        # Parse owner and repo from URL
+        owner, repo = extract_github_repo_info(repo_url)
+        
+        if not owner or not repo:
+            logging.error(f"Could not parse owner and repo from URL: {repo_url}")
+            return []
         
         # Set up headers for GitHub API
         headers = {}
-        if GITHUB_API_TOKEN:
-            headers['Authorization'] = f'token {GITHUB_API_TOKEN}'
+        
+        api_token = token if token else GITHUB_API_TOKEN
+        if api_token:
+            headers['Authorization'] = f'token {api_token}'
             
         headers['Accept'] = 'application/vnd.github.v3+json'
         
@@ -157,7 +169,7 @@ def extract_github_repo_info(repo_url):
         
     return parts[0], parts[1]
 
-def generate_github_workflow(app_name, branch, build_config, build_id):
+def generate_github_workflow(app_name, branch, build_config, build_id, callback_url):
     """
     Generate GitHub Actions workflow YAML for iOS app build
     
@@ -166,6 +178,7 @@ def generate_github_workflow(app_name, branch, build_config, build_id):
         branch (str): The branch to build from
         build_config (str): The build configuration (Debug/Release)
         build_id (str): The unique ID for this build
+        callback_url (str): The URL to call back with build results
         
     Returns:
         str: GitHub workflow YAML content
@@ -187,7 +200,7 @@ jobs:
     
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           ref: {branch}
       
@@ -287,7 +300,7 @@ EOF
             FILENAME=$(basename "$IPA_FILE")
             
             # Notify successful build with IPA
-            curl -X POST "${{{{ secrets.CALLBACK_URL }}}}/api/build_complete" \\
+            curl -X POST "{callback_url}/api/build_complete" \\
               -H "Content-Type: application/json" \\
               -d "{{
                 \\"build_id\\": \\"{build_id}\\",
@@ -299,7 +312,7 @@ EOF
             echo "Build failed. No IPA file found."
             
             # Notify build failure
-            curl -X POST "${{{{ secrets.CALLBACK_URL }}}}/api/build_complete" \\
+            curl -X POST "{callback_url}/api/build_complete" \\
               -H "Content-Type: application/json" \\
               -d "{{
                 \\"build_id\\": \\"{build_id}\\",
@@ -310,7 +323,7 @@ EOF
 """
     return workflow
 
-def fork_and_setup_github_workflow(build_id, repo_url, branch, app_name, build_config='Release'):
+def fork_and_setup_github_workflow(build_id, repo_url, branch, app_name, build_config='Release', callback_url=None, token=None):
     """
     Fork a GitHub repository and set up a workflow to build an iOS app
     
@@ -320,14 +333,20 @@ def fork_and_setup_github_workflow(build_id, repo_url, branch, app_name, build_c
         branch (str): The branch to build from
         app_name (str): The name of the app
         build_config (str): The build configuration (Debug/Release)
+        callback_url (str): The URL to call back with build results
+        token (str, optional): The GitHub token to use
         
     Returns:
         tuple: (status, message, fork_info)
     """
     from models import update_build_status
+    import tempfile
+    
+    # Use provided token or fallback to global
+    api_token = token if token else GITHUB_API_TOKEN
     
     # Check if GitHub token is available
-    if not GITHUB_API_TOKEN:
+    if not api_token:
         update_build_status(build_id, 'failed', "GitHub API token not configured")
         return False, "GitHub API token not configured", None
     
@@ -339,7 +358,7 @@ def fork_and_setup_github_workflow(build_id, repo_url, branch, app_name, build_c
     
     # Get authenticated user
     headers = {
-        'Authorization': f'token {GITHUB_API_TOKEN}',
+        'Authorization': f'token {api_token}',
         'Accept': 'application/vnd.github.v3+json'
     }
     
@@ -358,20 +377,7 @@ def fork_and_setup_github_workflow(build_id, repo_url, branch, app_name, build_c
         fork_name = f"{source_repo}-{build_id[:8]}"  # Use part of build ID to ensure uniqueness
         
         # Create a fork with a custom name (by creating a new repo and pushing to it)
-        fork_response = requests.post(
-            'https://api.github.com/repos/temp/temp',  # This is a placeholder URL
-            headers=headers,
-            json={
-                'name': fork_name,
-                'description': f"Temporary fork of {source_owner}/{source_repo} for building",
-                'private': True,
-                'has_issues': False,
-                'has_projects': False,
-                'has_wiki': False
-            }
-        )
-        
-        # Actually create the empty repo
+        # We don't use the fork API because we want a custom name to avoid conflicts
         create_repo_response = requests.post(
             'https://api.github.com/user/repos',
             headers=headers,
@@ -400,10 +406,17 @@ def fork_and_setup_github_workflow(build_id, repo_url, branch, app_name, build_c
             if clone_process.returncode != 0:
                 error_msg = f"Failed to clone repository: {clone_process.stderr}"
                 update_build_status(build_id, 'failed', error_msg)
-                return False, error_msg, None
+                cleanup_fork(fork_owner, fork_name, headers=headers)
+                # Return fork_info so we can show the cleanup button if auto-cleanup fails
+                fork_info = {
+                    'owner': fork_owner,
+                    'repo': fork_name,
+                    'url': fork_url
+                }
+                return False, error_msg, fork_info
                 
             # Create GitHub Actions workflow file
-            workflow_content = generate_github_workflow(app_name, branch, build_config, build_id)
+            workflow_content = generate_github_workflow(app_name, branch, build_config, build_id, callback_url)
             
             # Ensure workflows directory exists
             os.makedirs(os.path.join(temp_dir, '.github', 'workflows'), exist_ok=True)
@@ -412,8 +425,8 @@ def fork_and_setup_github_workflow(build_id, repo_url, branch, app_name, build_c
             with open(os.path.join(temp_dir, '.github', 'workflows', 'build.yml'), 'w') as f:
                 f.write(workflow_content)
                 
-            # Initialize git repo if not initialized
-            subprocess.run(['git', 'init'], cwd=temp_dir, capture_output=True)
+            # Initialize git repo if not initialized (it should be since we cloned)
+            # But we need to point it to the new remote
             
             # Configure git
             subprocess.run(['git', 'config', 'user.email', "actions@github.com"], cwd=temp_dir)
@@ -422,12 +435,11 @@ def fork_and_setup_github_workflow(build_id, repo_url, branch, app_name, build_c
             # Add remote for the fork
             subprocess.run(['git', 'remote', 'remove', 'origin'], cwd=temp_dir, capture_output=True)
             subprocess.run(['git', 'remote', 'add', 'origin', 
-                           f"https://{fork_owner}:{GITHUB_API_TOKEN}@github.com/{fork_owner}/{fork_name}.git"], 
+                           f"https://{fork_owner}:{api_token}@github.com/{fork_owner}/{fork_name}.git"], 
                            cwd=temp_dir)
             
             # Add workflow file
             subprocess.run(['git', 'add', '.github/workflows/build.yml'], cwd=temp_dir)
-            subprocess.run(['git', 'add', '.'], cwd=temp_dir)  # Add all files
             
             # Commit changes
             subprocess.run(['git', 'commit', '-m', f"Add workflow for building {app_name}"], cwd=temp_dir)
@@ -436,16 +448,26 @@ def fork_and_setup_github_workflow(build_id, repo_url, branch, app_name, build_c
             push_process = subprocess.run(['git', 'push', '-u', 'origin', branch], cwd=temp_dir, capture_output=True, text=True)
             
             if push_process.returncode != 0:
-                # Try pushing to main branch instead
+                # Try pushing to main branch instead if the branch names differ or if it's a new repo
                 push_process = subprocess.run(['git', 'push', '-u', 'origin', f"{branch}:main"], cwd=temp_dir, capture_output=True, text=True)
                 
                 if push_process.returncode != 0:
                     error_msg = f"Failed to push to fork repository: {push_process.stderr}"
                     update_build_status(build_id, 'failed', error_msg)
-                    return False, error_msg, None
+                    cleanup_fork(fork_owner, fork_name, headers=headers)
+                    fork_info = {
+                        'owner': fork_owner,
+                        'repo': fork_name,
+                        'url': fork_url
+                    }
+                    return False, error_msg, fork_info
         
         # Trigger the workflow
         dispatch_url = f"https://api.github.com/repos/{fork_owner}/{fork_name}/actions/workflows/build.yml/dispatches"
+        
+        # Wait a moment for GitHub to process the push and recognize the workflow
+        time.sleep(5)
+        
         dispatch_response = requests.post(
             dispatch_url,
             headers=headers,
@@ -463,7 +485,13 @@ def fork_and_setup_github_workflow(build_id, repo_url, branch, app_name, build_c
         if dispatch_response.status_code not in (204, 200):
             error_msg = f"Failed to trigger workflow: {dispatch_response.text}"
             update_build_status(build_id, 'failed', error_msg)
-            return False, error_msg, None
+            cleanup_fork(fork_owner, fork_name, headers=headers)
+            fork_info = {
+                'owner': fork_owner,
+                'repo': fork_name,
+                'url': fork_url
+            }
+            return False, error_msg, fork_info
             
         # Store fork info for later cleanup
         fork_info = {
@@ -477,9 +505,21 @@ def fork_and_setup_github_workflow(build_id, repo_url, branch, app_name, build_c
     except Exception as e:
         error_msg = f"Error setting up GitHub workflow: {str(e)}"
         update_build_status(build_id, 'failed', error_msg)
-        return False, error_msg, None
+        # Try to cleanup if fork_owner and fork_name are defined
+        fork_info = None
+        try:
+            if 'fork_owner' in locals() and 'fork_name' in locals():
+                cleanup_fork(fork_owner, fork_name, headers=headers)
+                fork_info = {
+                    'owner': fork_owner,
+                    'repo': fork_name,
+                    'url': f"https://github.com/{fork_owner}/{fork_name}"
+                }
+        except:
+            pass
+        return False, error_msg, fork_info
 
-def cleanup_fork(owner, repo, headers=None):
+def cleanup_fork(owner, repo, headers=None, token=None):
     """
     Delete a forked repository
     
@@ -487,13 +527,15 @@ def cleanup_fork(owner, repo, headers=None):
         owner (str): The owner of the fork
         repo (str): The name of the fork
         headers (dict, optional): GitHub API headers
+        token (str, optional): GitHub token to use if headers not provided
         
     Returns:
         bool: True if successful, False otherwise
     """
     if headers is None:
+        api_token = token if token else GITHUB_API_TOKEN
         headers = {
-            'Authorization': f'token {GITHUB_API_TOKEN}',
+            'Authorization': f'token {api_token}',
             'Accept': 'application/vnd.github.v3+json'
         }
         
@@ -513,7 +555,7 @@ def cleanup_fork(owner, repo, headers=None):
         logging.error(f"Error deleting fork: {str(e)}")
         return False
 
-def monitor_github_workflow(build_id, fork_info):
+def monitor_github_workflow(build_id, fork_info, token=None):
     """
     Monitor a GitHub Actions workflow for completion
     This is meant to be run in a separate thread
@@ -521,14 +563,17 @@ def monitor_github_workflow(build_id, fork_info):
     Args:
         build_id (str): The build ID
         fork_info (dict): Information about the forked repository
+        token (str, optional): The GitHub token to use
     """
     from models import update_build_status
     
     owner = fork_info['owner']
     repo = fork_info['repo']
     
+    api_token = token if token else GITHUB_API_TOKEN
+    
     headers = {
-        'Authorization': f'token {GITHUB_API_TOKEN}',
+        'Authorization': f'token {api_token}',
         'Accept': 'application/vnd.github.v3+json'
     }
     
@@ -569,7 +614,7 @@ def monitor_github_workflow(build_id, fork_info):
                     update_build_status(build_id, 'in_progress', "Build completed in GitHub Actions. Waiting for artifact...")
                 elif conclusion in ('failure', 'cancelled', 'timed_out'):
                     update_build_status(build_id, 'failed', f"GitHub Actions workflow {conclusion}")
-                    cleanup_fork(owner, repo, headers)
+                    cleanup_fork(owner, repo, headers=headers)
                     return
             else:
                 update_build_status(build_id, 'in_progress', f"GitHub Actions workflow {status}...")
@@ -583,14 +628,15 @@ def monitor_github_workflow(build_id, fork_info):
     
     # If we get here, the build timed out
     update_build_status(build_id, 'failed', "Build timed out after 30 minutes")
-    cleanup_fork(owner, repo, headers)
+    cleanup_fork(owner, repo, headers=headers)
 
-def cleanup_fork_on_failure(build):
+def cleanup_fork_on_failure(build, token=None):
     """
     Clean up fork for a failed build
     
     Args:
         build (dict): The build data
+        token (str, optional): The GitHub token to use
     """
     # Check if fork info exists
     if not build or 'fork_info' not in build:
@@ -601,4 +647,4 @@ def cleanup_fork_on_failure(build):
         return
     
     # Clean up the fork
-    cleanup_fork(fork_info['owner'], fork_info['repo']) 
+    cleanup_fork(fork_info['owner'], fork_info['repo'], token=token) 

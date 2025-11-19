@@ -124,6 +124,21 @@ def update_user_password(username, new_password_hash):
     )
     return result.modified_count > 0
 
+def update_user_github_token(username, token):
+    """Update a user's GitHub token"""
+    result = users_collection.update_one(
+        {'username': username},
+        {'$set': {'github_token': token}}
+    )
+    return result.modified_count > 0 or result.matched_count > 0
+
+def get_user_github_token(username):
+    """Get a user's GitHub token"""
+    user = get_user(username)
+    if user:
+        return user.get('github_token')
+    return None
+
 def update_user_profile_picture(username, picture_data, content_type='image/jpeg'):
     """Update a user's profile picture
     
