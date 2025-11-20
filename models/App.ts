@@ -13,17 +13,19 @@ export interface IVersion {
 export interface IApp extends Document {
     id: string;
     name: string;
-    bundle_id?: string;
     version: string;
-    build_number: string;
-    icon?: string;
+    bundle_id?: string;
+    build_number?: string;
+    min_ios_version?: string;
     size?: number;
+    icon?: string;
     upload_date?: string;
     creation_date?: string;
-    owner?: string;
-    org_id?: string;
+    source?: string;
+    github_repo?: string;
+    file_path?: string;
+    download_count?: number;
     description?: string;
-    source?: string; // e.g., 'github'
     versions: IVersion[];
     file_id?: string; // Main file ID (usually latest)
 }
@@ -41,17 +43,19 @@ const VersionSchema = new Schema({
 const AppSchema: Schema<IApp> = new Schema({
     id: { type: String, required: true, unique: true },
     name: { type: String, required: true },
+    version: { type: String, required: true },
     bundle_id: String,
-    version: String,
     build_number: String,
-    icon: String,
+    min_ios_version: String,
     size: Number,
+    icon: String,
     upload_date: String,
     creation_date: String,
-    owner: String,
-    org_id: String,
-    description: String,
     source: String,
+    github_repo: String,
+    file_path: String,
+    download_count: { type: Number, default: 0 },
+    description: String,
     versions: [VersionSchema],
     file_id: String
 });

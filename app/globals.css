@@ -21,6 +21,24 @@
     --text-muted: #94a3b8;
   }
 
+  /* Hide scrollbars while maintaining scroll functionality */
+  * {
+    scrollbar-width: none;
+    /* Firefox */
+    -ms-overflow-style: none;
+    /* IE and Edge */
+  }
+
+  *::-webkit-scrollbar {
+    display: none;
+    /* Chrome, Safari, Opera */
+  }
+
+  html,
+  body {
+    overflow-x: hidden;
+  }
+
   body {
     background-color: var(--dark-bg);
     background-image:

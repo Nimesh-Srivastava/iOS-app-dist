@@ -81,14 +81,14 @@ export default function AppCard({ app }: AppCardProps) {
 
             <div className="p-4 bg-black/20 border-t border-white/5 flex gap-2">
                 <Link
-                    href={`/apps/${app.id}`}
+                    href={`/apps/${app._id}`}
                     className="flex-1 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 text-sm font-medium py-2 rounded-lg flex items-center justify-center transition-colors"
                 >
                     Details
                     <ArrowRight className="w-4 h-4 ml-1" />
                 </Link>
                 <Link
-                    href={`/apps/${app.id}/install`} // We'll implement install route later or handle it
+                    href={`/apps/${app._id}/install`}
                     className="flex-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 text-sm font-medium py-2 rounded-lg flex items-center justify-center transition-colors"
                 >
                     Install
