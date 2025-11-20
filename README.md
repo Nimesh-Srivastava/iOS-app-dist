@@ -1,121 +1,174 @@
-# iOS App Distribution Platform
+# iOS App Distribution Platform - v3 (Next.js)
 
-## Note
-View CHANGELOG.md for comparing v2.2 and v2.1
+Modern, full-stack iOS app distribution platform built with Next.js 16, TypeScript, and MongoDB.
 
-This platform allows you to build and distribute iOS apps directly from GitHub repositories or by uploading IPA files.
+## Features
 
-## GitHub Actions Integration
+- 🚀 **Next.js 16** with App Router and Server Components
+- 🔐 **NextAuth.js** authentication with existing user database
+- 🎨 **Futuristic UI** with Tailwind CSS and Framer Motion
+- 📱 **IPA Upload** with automatic parsing and metadata extraction
+- 🗄️ **MongoDB** database (shared with Flask v2.x)
+- 💎 **TypeScript** for type safety
+- ✨ **Glassmorphism** design with smooth animations
 
-This project now includes GitHub Actions support for automated iOS app building. When you push code to your repository, GitHub Actions can automatically build your iOS app and store the build artifacts.
+## Tech Stack
 
-### Setup Instructions
+- **Framework**: Next.js 16.0.3 (App Router, Turbopack)
+- **Language**: TypeScript 5
+- **Database**: MongoDB (Mongoose 8.20.0)
+- **Authentication**: NextAuth.js 4.24.13
+- **Styling**: Tailwind CSS 3
+- **Animations**: Framer Motion 12.23.24
+- **Icons**: Lucide React 0.554.0
+- **File Parsing**: adm-zip, plist
 
-1. **Fork or clone this repository** to your GitHub account.
+## Getting Started
 
-2. **Set up required secrets** in your GitHub repository:
+### Prerequisites
 
-   - Go to your repository on GitHub
-   - Navigate to Settings > Secrets and variables > Actions
-   - Add the following secrets:
-     - `APPLE_TEAM_ID`: Your Apple Developer Team ID
-     - `MONGO_URI`: Your MongoDB connection string
-     - `DB_NAME`: Your database name
-     - `SECRET_KEY`: Secret key for app security
+- Node.js 18+ and npm
+- MongoDB Atlas account (or local MongoDB)
+- Existing user database from Flask v2.x (optional)
 
-3. **Customize the workflow** in `.github/workflows/build-ios-app.yml` if needed.
+### Installation
 
-4. **Push your changes** to trigger the workflow, or manually run it from the Actions tab.
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/Nimesh-Srivastava/iOS-app-dist.git
+   cd iOS-app-dist
+   git checkout v3
+   ```
 
-### How It Works
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
 
-The GitHub Actions workflow:
+3. **Configure environment variables**
+   
+   Create `.env.local` file:
+   ```env
+   MONGODB_URI=mongodb+srv://your-connection-string
+   DB_NAME=app_distribution
+   NEXTAUTH_SECRET=your-secret-key-here
+   NEXTAUTH_URL=http://localhost:3000
+   ```
 
-1. Runs on a macOS environment to have access to Xcode
-2. Sets up Python and installs dependencies
-3. Configures Xcode with the latest stable version
-4. Uses your app's `build_ios_app_from_github` function to build the app
-5. Saves build artifacts for download
+4. **Run development server**
+   ```bash
+   npm run dev
+   ```
 
-### Workflow Triggers
+5. **Open in browser**
+   
+   Navigate to [http://localhost:3000](http://localhost:3000)
 
-The workflow runs automatically when:
+### Default Login
 
-- You push to the `main` or `master` branch
-- A pull request is opened against the `main` or `master` branch
-- You manually trigger it from the GitHub Actions tab
+If using the existing database:
+- **Username**: `admin`
+- **Password**: Your configured admin password
 
-### Viewing Build Results
+## Project Structure
 
-1. Go to the Actions tab in your GitHub repository
-2. Click on the workflow run
-3. Download the build artifacts from the Summary page
-4. The build is also recorded in your app's database for viewing in the web interface
+```
+├── app/                    # Next.js App Router
+│   ├── (auth)/            # Authentication routes
+│   │   └── login/         # Login page
+│   ├── (dashboard)/       # Protected dashboard routes
+│   │   ├── apps/[id]/     # App detail page
+│   │   ├── upload/        # Upload page
+│   │   └── page.tsx       # Dashboard home
+│   ├── api/               # API routes
+│   │   ├── auth/          # NextAuth endpoints
+│   │   └── upload/        # File upload endpoint
+│   ├── globals.css        # Global styles
+│   └── layout.tsx         # Root layout
+├── components/            # React components
+│   ├── AppCard.tsx        # App card component
+│   └── Navbar.tsx         # Navigation bar
+├── lib/                   # Utilities
+│   ├── auth.ts            # NextAuth configuration
+│   ├── db.ts              # MongoDB connection
+│   └── ipa-parser.ts      # IPA file parser
+├── models/                # Mongoose models
+│   ├── User.ts            # User model
+│   ├── App.ts             # App model
+│   └── Organization.ts    # Organization model
+└── types/                 # TypeScript types
+    └── next-auth.d.ts     # NextAuth type extensions
+```
 
-## Manual Build Process
+## Available Scripts
 
-You can also trigger builds manually through the web interface:
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm start` - Start production server
+- `npm run lint` - Run ESLint
 
-1. Log in to the app
-2. Navigate to the GitHub Build page
-3. Enter your repository URL, branch, and other details
-4. Click "Start Build"
+## Database Compatibility
 
-## Troubleshooting
+This v3 Next.js app uses the **same MongoDB database** as the Flask v2.x application. All user data, apps, and organizations are shared between versions.
 
-- **Build fails on GitHub Actions**: Check the workflow logs for detailed error messages.
-- **Missing Xcode components**: Ensure the GitHub macOS runner has the necessary Xcode components.
-- **Database connection issues**: Verify your MongoDB connection string in the secrets.
+### Password Compatibility
 
-## MongoDB Storage
+The authentication system is compatible with Werkzeug password hashes from Flask, using the format:
+```
+pbkdf2:sha256:iterations$salt$hash
+```
 
-This application uses MongoDB for all data storage, including:
+## Migration from v2.x
 
-- User accounts and authentication
-- App metadata and version information
-- Build records and logs
-- IPA files and other binary assets
+The v3 branch contains only the Next.js application. The Flask v2.x code remains on branches:
+- `v2.2.1` - Latest Flask version
+- `main` - Original Flask implementation
 
-### MongoDB Configuration
+Both applications can run simultaneously on different ports and share the same database.
 
-The application requires the following environment variables for MongoDB configuration:
+## Deployment
 
-- `MONGO_URI`: Your MongoDB connection string (e.g., "mongodb://localhost:27017/" or a MongoDB Atlas URI)
-- `DB_NAME`: The name of the database to use (default: "app_distribution")
+### Vercel (Recommended)
 
-### MongoDB Collections
+1. Push to GitHub
+2. Import project in Vercel
+3. Configure environment variables
+4. Deploy
 
-The application uses several collections in the database:
+### Manual Deployment
 
-- `users`: Stores user account information
-- `apps`: Stores app metadata and version information
-- `builds`: Stores build records and logs
-- `app_shares`: Tracks app sharing permissions between users
-- `files`: Stores binary data for IPA files and other assets
+```bash
+npm run build
+npm start
+```
 
-### File Storage
+## Features Implemented
 
-Unlike previous versions that used the local filesystem, this version stores all binary files directly in MongoDB:
+✅ User authentication (NextAuth.js)  
+✅ App library with grid display  
+✅ App detail page with version history  
+✅ IPA file upload and parsing  
+✅ Glassmorphism UI design  
+✅ Framer Motion animations  
+✅ Responsive layout  
+✅ Organization-aware data access  
+✅ Type-safe codebase  
 
-- IPA files are stored as binary data in the `files` collection
-- File metadata (filename, size, MIME type) is stored alongside the binary data
-- This allows for easier deployment and migration between environments
-- No local file storage is required, except for temporary build files
+## Roadmap
 
-## Requirements
+- [ ] GitHub build integration
+- [ ] Comment system for app versions
+- [ ] Notification system
+- [ ] User profile management
+- [ ] App sharing functionality
+- [ ] Download/install endpoints
+- [ ] GridFS for large file storage
+- [ ] Comprehensive testing
 
-- Python 3.7+
-- Flask
-- pymongo
-- Pillow
-- For local building: macOS with Xcode installed
-- MongoDB 4.0+ (local instance or MongoDB Atlas)
+## License
 
-## Environment Variables
+MIT
 
-- `SECRET_KEY`: Secret key for session security (required)
-- `MONGO_URI`: MongoDB connection string (required)
-- `DB_NAME`: MongoDB database name (default: "app_distribution")
-- `APPLE_TEAM_ID`: Your Apple Developer Team ID (optional, used for builds)
-- `GITHUB_REPO_URL`: Default GitHub repository URL (optional)
-- `TZ`: Timezone for file upload timestamps (optional, default: "UTC")
+## Support
+
+For issues and questions, please open an issue on GitHub.
