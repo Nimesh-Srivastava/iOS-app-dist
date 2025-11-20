@@ -24,3 +24,4 @@ migration.log
 # Default files
 .DS_Store
 node_modules
+.next/
